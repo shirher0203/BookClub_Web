@@ -1,0 +1,16 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Environment
+.env
+.env.local
+
+# Project plan (do not commit)
+PROJECT_PLAN.md
+
+# Logs and OS
+*.log
+.DS_Store

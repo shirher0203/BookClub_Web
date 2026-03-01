@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Uploads (user-generated content)
+public/uploads/*
+
+# Project plan (do not commit to repo)
+PROJECT_PLAN.md
+
+# Logs and OS
+*.log
+.DS_Store
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo

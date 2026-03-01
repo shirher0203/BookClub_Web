@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Environment
+.env
+.env.local
+
+# Uploads
+public/uploads/*
+
+# Project plan (do not commit)
+PROJECT_PLAN.md
+
+# Local app for testing (do not commit)
+src/app.local.ts
+
+# Logs and OS
+*.log
+.DS_Store
