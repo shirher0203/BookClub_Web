@@ -15,6 +15,11 @@ export interface Post {
   id: string;
   userId: string;
   user?: User;
+  bookName: string;
+  bookAuthor?: string;
+  genre?: string;
+  /** 1–5 star rating, optional */
+  score?: number;
   text: string;
   image?: string;
   likesCount: number;
