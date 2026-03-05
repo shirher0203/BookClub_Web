@@ -2,6 +2,11 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPost extends Document {
   userId: mongoose.Types.ObjectId;
+  bookName: string;
+  bookAuthor?: string;
+  genre?: string;
+  /** 1–5 star rating, optional */
+  score?: number;
   text: string;
   image?: string;
   likes: mongoose.Types.ObjectId[];
@@ -16,6 +21,27 @@ const postSchema = new Schema<IPost>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+    },
+    bookName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    bookAuthor: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    genre: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    score: {
+      type: Number,
+      required: false,
+      min: 1,
+      max: 5,
     },
     text: {
       type: String,
