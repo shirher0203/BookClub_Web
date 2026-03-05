@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'bookclub-api',
-      script: 'dist/server.js',
+      script: 'dist/src/server.js',
       cwd: '.',
       env: {
         NODE_ENV: 'production',
