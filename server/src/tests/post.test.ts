@@ -1,58 +1,34 @@
 import request from 'supertest';
-import express, { Express, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import { User } from '../models/userModel';
 import { Post } from '../models/postModel';
 import {
-  createPost,
-  getPostById,
-  updatePost,
-  deletePost,
-  upload,
-} from '../controllers/postController';
+  initPostTestEnv,
+  closePostTestEnv,
+  resetPostTestDb,
+  getTestApp,
+  USERS,
+  POSTS,
+} from './helpers/postTestHelpers';
 
-let mongoServer: MongoMemoryServer;
-let app: Express;
-
-/** Stub auth: set req.user from header x-test-user-id (tests don't depend on real auth). */
-function stubAuth(req: Request, _res: Response, next: NextFunction): void {
-  const id = req.headers['x-test-user-id'] as string | undefined;
-  (req as Request & { user?: { id: string } }).user = id ? { id } : undefined;
-  next();
-}
+let app: ReturnType<typeof getTestApp>;
 
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  await mongoose.connect(uri);
-
-  app = express();
-  app.use(express.json());
-  app.use(stubAuth);
-  app.post('/posts', upload.single('image'), createPost);
-  app.get('/posts/:id', getPostById);
-  app.put('/posts/:id', upload.single('image'), updatePost);
-  app.delete('/posts/:id', deletePost);
+  await initPostTestEnv();
+  app = getTestApp();
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  await closePostTestEnv();
 });
 
 beforeEach(async () => {
-  await Post.deleteMany({});
-  await User.deleteMany({});
+  await resetPostTestDb();
 });
 
 describe('Posts CRUD', () => {
   it('should create post 201 with bookName and return populated post', async () => {
-    const user = await User.create({
-      username: 'author1',
-      email: 'a1@test.com',
-      password: 'hash',
-    });
+    const user = await User.create(USERS.AUTHOR);
     const res = await request(app)
       .post('/posts')
       .set('x-test-user-id', user._id.toString())
@@ -68,11 +44,7 @@ describe('Posts CRUD', () => {
   });
 
   it('should return 400 when bookName is missing', async () => {
-    const user = await User.create({
-      username: 'u1',
-      email: 'u1@test.com',
-      password: 'hash',
-    });
+    const user = await User.create(USERS.AUTHOR);
     const res = await request(app)
       .post('/posts')
       .set('x-test-user-id', user._id.toString())
@@ -90,11 +62,7 @@ describe('Posts CRUD', () => {
   });
 
   it('should return 400 when create post with score below 1', async () => {
-    const user = await User.create({
-      username: 'uScore',
-      email: 'score@test.com',
-      password: 'hash',
-    });
+    const user = await User.create(USERS.AUTHOR);
     const res = await request(app)
       .post('/posts')
       .set('x-test-user-id', user._id.toString())
@@ -106,11 +74,7 @@ describe('Posts CRUD', () => {
   });
 
   it('should return 400 when create post with score above 5', async () => {
-    const user = await User.create({
-      username: 'uScore2',
-      email: 'score2@test.com',
-      password: 'hash',
-    });
+    const user = await User.create(USERS.AUTHOR);
     const res = await request(app)
       .post('/posts')
       .set('x-test-user-id', user._id.toString())
@@ -122,11 +86,7 @@ describe('Posts CRUD', () => {
   });
 
   it('should create post 201 with valid score 1 and 5', async () => {
-    const user = await User.create({
-      username: 'uScoreValid',
-      email: 'scorevalid@test.com',
-      password: 'hash',
-    });
+    const user = await User.create(USERS.AUTHOR);
     const res1 = await request(app)
       .post('/posts')
       .set('x-test-user-id', user._id.toString())
@@ -147,18 +107,8 @@ describe('Posts CRUD', () => {
   });
 
   it('should return 400 when update post with invalid score', async () => {
-    const user = await User.create({
-      username: 'uScoreUpdate',
-      email: 'scoreup@test.com',
-      password: 'hash',
-    });
-    const post = await Post.create({
-      userId: user._id,
-      bookName: 'Book',
-      text: 'Text',
-      likesCount: 0,
-      commentsCount: 0,
-    });
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: user._id });
     const res = await request(app)
       .put(`/posts/${post._id}`)
       .set('x-test-user-id', user._id.toString())
@@ -168,24 +118,14 @@ describe('Posts CRUD', () => {
   });
 
   it('should get post by id 200 with populated user', async () => {
-    const user = await User.create({
-      username: 'author2',
-      email: 'a2@test.com',
-      password: 'hash',
-    });
-    const post = await Post.create({
-      userId: user._id,
-      bookName: 'Book Two',
-      text: 'Review',
-      likesCount: 0,
-      commentsCount: 0,
-    });
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.BOOK_TWO, userId: user._id });
     const res = await request(app).get(`/posts/${post._id}`);
     expect(res.status).toBe(200);
     expect(res.body._id).toBe(post._id.toString());
     expect(res.body.bookName).toBe('Book Two');
     expect(res.body.userId).toMatchObject({
-      username: 'author2',
+      username: 'author',
       _id: user._id.toString(),
     });
   });
@@ -197,18 +137,8 @@ describe('Posts CRUD', () => {
   });
 
   it('should update post 200 as author', async () => {
-    const user = await User.create({
-      username: 'author3',
-      email: 'a3@test.com',
-      password: 'hash',
-    });
-    const post = await Post.create({
-      userId: user._id,
-      bookName: 'Original',
-      text: 'Original text',
-      likesCount: 0,
-      commentsCount: 0,
-    });
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.ORIGINAL, userId: user._id });
     const res = await request(app)
       .put(`/posts/${post._id}`)
       .set('x-test-user-id', user._id.toString())
@@ -220,23 +150,9 @@ describe('Posts CRUD', () => {
   });
 
   it('should return 403 when updating as non-author', async () => {
-    const author = await User.create({
-      username: 'author4',
-      email: 'a4@test.com',
-      password: 'hash',
-    });
-    const other = await User.create({
-      username: 'other4',
-      email: 'o4@test.com',
-      password: 'hash',
-    });
-    const post = await Post.create({
-      userId: author._id,
-      bookName: 'Author Book',
-      text: 'Text',
-      likesCount: 0,
-      commentsCount: 0,
-    });
+    const author = await User.create(USERS.AUTHOR);
+    const other = await User.create(USERS.OTHER);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: author._id });
     const res = await request(app)
       .put(`/posts/${post._id}`)
       .set('x-test-user-id', other._id.toString())
@@ -245,18 +161,8 @@ describe('Posts CRUD', () => {
   });
 
   it('should delete post 204 as author', async () => {
-    const user = await User.create({
-      username: 'author5',
-      email: 'a5@test.com',
-      password: 'hash',
-    });
-    const post = await Post.create({
-      userId: user._id,
-      bookName: 'To Delete',
-      text: 'Text',
-      likesCount: 0,
-      commentsCount: 0,
-    });
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: user._id });
     const res = await request(app)
       .delete(`/posts/${post._id}`)
       .set('x-test-user-id', user._id.toString());
@@ -266,23 +172,9 @@ describe('Posts CRUD', () => {
   });
 
   it('should return 403 when deleting as non-author', async () => {
-    const author = await User.create({
-      username: 'author6',
-      email: 'a6@test.com',
-      password: 'hash',
-    });
-    const other = await User.create({
-      username: 'other6',
-      email: 'o6@test.com',
-      password: 'hash',
-    });
-    const post = await Post.create({
-      userId: author._id,
-      bookName: 'Not Yours',
-      text: 'Text',
-      likesCount: 0,
-      commentsCount: 0,
-    });
+    const author = await User.create(USERS.AUTHOR);
+    const other = await User.create(USERS.OTHER);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: author._id });
     const res = await request(app)
       .delete(`/posts/${post._id}`)
       .set('x-test-user-id', other._id.toString());
@@ -292,15 +184,55 @@ describe('Posts CRUD', () => {
   });
 
   it('should return 404 when deleting nonexistent post', async () => {
-    const user = await User.create({
-      username: 'u7',
-      email: 'u7@test.com',
-      password: 'hash',
-    });
+    const user = await User.create(USERS.AUTHOR);
     const fakeId = new mongoose.Types.ObjectId();
     const res = await request(app)
       .delete(`/posts/${fakeId}`)
       .set('x-test-user-id', user._id.toString());
     expect(res.status).toBe(404);
+  });
+});
+
+describe('Feed pagination', () => {
+  it('should return feed in createdAt descending order', async () => {
+    const user = await User.create(USERS.FEED);
+    await Post.create({ ...POSTS.OLDER, userId: user._id });
+    await Post.create({ ...POSTS.NEWER, userId: user._id });
+    const res = await request(app).get('/posts?limit=10');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('posts');
+    expect(res.body).toHaveProperty('total', 2);
+    expect(res.body.posts).toHaveLength(2);
+    expect(res.body.posts[0].bookName).toBe('Newer');
+    expect(res.body.posts[1].bookName).toBe('Older');
+  });
+
+  it('should paginate feed with skip and limit', async () => {
+    const user = await User.create(USERS.FEED);
+    for (let i = 0; i < 5; i++) {
+      await Post.create({ ...POSTS.DEFAULT, bookName: `Book ${i}`, userId: user._id });
+    }
+    const page1 = await request(app).get('/posts?skip=0&limit=2');
+    const page2 = await request(app).get('/posts?skip=2&limit=2');
+    expect(page1.status).toBe(200);
+    expect(page2.status).toBe(200);
+    expect(page1.body.posts).toHaveLength(2);
+    expect(page2.body.posts).toHaveLength(2);
+    expect(page1.body.total).toBe(5);
+    const ids1 = page1.body.posts.map((p: { _id: string }) => p._id);
+    const ids2 = page2.body.posts.map((p: { _id: string }) => p._id);
+    ids1.forEach((id: string) => expect(ids2).not.toContain(id));
+  });
+
+  it('should return only posts for given user', async () => {
+    const userA = await User.create(USERS.FEED);
+    const userB = await User.create(USERS.OTHER);
+    await Post.create({ ...POSTS.A_BOOK, userId: userA._id });
+    await Post.create({ ...POSTS.B_BOOK, userId: userB._id });
+    const res = await request(app).get(`/posts/user/${userA._id}?limit=10`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(1);
+    expect(res.body.posts[0].bookName).toBe('A Book');
+    expect(res.body.total).toBe(1);
   });
 });

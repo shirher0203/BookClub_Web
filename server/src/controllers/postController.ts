@@ -70,6 +70,33 @@ export async function createPost(req: Request, res: Response): Promise<void> {
   res.status(201).json(populated);
 }
 
+export async function getFeed(req: Request, res: Response): Promise<void> {
+  const skip = Math.max(0, Number(req.query.skip) || 0);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+  const posts = await Post.find()
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .populate('userId', 'username profileImage _id')
+    .lean();
+  const total = await Post.countDocuments();
+  res.json({ posts, total });
+}
+
+export async function getUserPosts(req: Request, res: Response): Promise<void> {
+  const { id: userId } = req.params;
+  const skip = Math.max(0, Number(req.query.skip) || 0);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+  const posts = await Post.find({ userId })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .populate('userId', 'username profileImage _id')
+    .lean();
+  const total = await Post.countDocuments({ userId });
+  res.json({ posts, total });
+}
+
 export async function getPostById(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const post = await Post.findById(id)

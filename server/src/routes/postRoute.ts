@@ -2,6 +2,8 @@ import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware';
 import {
   createPost,
+  getFeed,
+  getUserPosts,
   getPostById,
   updatePost,
   deletePost,
@@ -9,6 +11,46 @@ import {
 } from '../controllers/postController';
 
 const router = Router();
+
+/**
+ * @openapi
+ * /posts:
+ *   get:
+ *     summary: Get paginated feed (all posts, newest first)
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: query
+ *         name: skip
+ *         schema: { type: integer, default: 0 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200: { description: Array of posts with total count }
+ */
+router.get('/', getFeed);
+
+/**
+ * @openapi
+ * /posts/user/{id}:
+ *   get:
+ *     summary: Get paginated posts by user
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: skip
+ *         schema: { type: integer, default: 0 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200: { description: Array of posts for user with total count }
+ */
+router.get('/user/:id', getUserPosts);
 
 /**
  * @openapi
