@@ -75,8 +75,8 @@ describe('Comments', () => {
     const user = await User.create(USERS.AUTHOR);
     const post = await Post.create({ ...POSTS.DEFAULT, userId: user._id });
     await Comment.create([
-      { postId: post._id, userId: user._id, text: 'First' },
-      { postId: post._id, userId: user._id, text: 'Second' },
+      { postId: post._id, userId: user._id, text: 'First', createdAt: new Date('2024-01-01T10:00:00Z') },
+      { postId: post._id, userId: user._id, text: 'Second', createdAt: new Date('2024-01-01T11:00:00Z') },
     ]);
     const res = await request(app).get(`/comments?postId=${post._id}`);
     expect(res.status).toBe(200);
