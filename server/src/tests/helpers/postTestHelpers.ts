@@ -10,6 +10,7 @@ import {
   getPostById,
   updatePost,
   deletePost,
+  toggleLike,
   upload,
 } from '../../controllers/postController';
 
@@ -81,6 +82,7 @@ export async function initPostTestEnv(): Promise<void> {
   app.get('/posts/:id', getPostById);
   app.put('/posts/:id', upload.single('image'), updatePost);
   app.delete('/posts/:id', deletePost);
+  app.post('/posts/:id/like', toggleLike);
 }
 
 export async function closePostTestEnv(): Promise<void> {

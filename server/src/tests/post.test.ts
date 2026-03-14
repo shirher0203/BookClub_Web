@@ -236,3 +236,61 @@ describe('Feed pagination', () => {
     expect(res.body.total).toBe(1);
   });
 });
+
+describe('Likes', () => {
+  it('should like post 200 and add user to likes and increment likesCount', async () => {
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: user._id });
+    const res = await request(app)
+      .post(`/posts/${post._id}/like`)
+      .set('x-test-user-id', user._id.toString());
+    expect(res.status).toBe(200);
+    expect(res.body.likesCount).toBe(1);
+    expect(Array.isArray(res.body.likes)).toBe(true);
+    expect(res.body.likes).toHaveLength(1);
+    expect(res.body.likes).toContain(user._id.toString());
+  });
+
+  it('should unlike post 200 and remove user and decrement likesCount', async () => {
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: user._id, likes: [user._id], likesCount: 1 });
+    const res = await request(app)
+      .post(`/posts/${post._id}/like`)
+      .set('x-test-user-id', user._id.toString());
+    expect(res.status).toBe(200);
+    expect(res.body.likesCount).toBe(0);
+    expect(res.body.likes).toHaveLength(0);
+    expect(res.body.likes).not.toContain(user._id.toString());
+  });
+
+  it('should be idempotent when liking twice (double like)', async () => {
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: user._id });
+    await request(app)
+      .post(`/posts/${post._id}/like`)
+      .set('x-test-user-id', user._id.toString());
+    const res = await request(app)
+      .post(`/posts/${post._id}/like`)
+      .set('x-test-user-id', user._id.toString());
+    expect(res.status).toBe(200);
+    expect(res.body.likesCount).toBe(0);
+    expect(res.body.likes).toHaveLength(0);
+    expect(res.body.likes).not.toContain(user._id.toString());
+  });
+
+  it('should return 401 when liking without auth', async () => {
+    const user = await User.create(USERS.AUTHOR);
+    const post = await Post.create({ ...POSTS.DEFAULT, userId: user._id });
+    const res = await request(app).post(`/posts/${post._id}/like`);
+    expect(res.status).toBe(401);
+  });
+
+  it('should return 404 when liking nonexistent post', async () => {
+    const user = await User.create(USERS.AUTHOR);
+    const fakeId = '507f1f77bcf86cd799439011';
+    const res = await request(app)
+      .post(`/posts/${fakeId}/like`)
+      .set('x-test-user-id', user._id.toString());
+    expect(res.status).toBe(404);
+  });
+});
