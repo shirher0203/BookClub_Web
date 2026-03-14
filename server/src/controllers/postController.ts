@@ -164,3 +164,30 @@ export async function deletePost(req: Request, res: Response): Promise<void> {
   await Post.findByIdAndDelete(id);
   res.status(204).send();
 }
+
+export async function toggleLike(req: Request, res: Response): Promise<void> {
+  const user = getReqUser(req);
+  if (!user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  const { id } = req.params;
+  const post = await Post.findById(id);
+  if (!post) {
+    res.status(404).json({ message: 'Post not found' });
+    return;
+  }
+  const userId = user.id;
+  const isLiked = post.likes.some((oid) => oid.toString() === userId);
+  const update = isLiked
+    ? { $pull: { likes: userId }, $inc: { likesCount: -1 } }
+    : { $addToSet: { likes: userId }, $inc: { likesCount: 1 } };
+  const updated = await Post.findByIdAndUpdate(
+    id,
+    update,
+    { new: true }
+  )
+    .populate('userId', 'username profileImage _id')
+    .lean();
+  res.status(200).json(updated);
+}

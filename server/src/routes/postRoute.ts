@@ -7,6 +7,7 @@ import {
   getPostById,
   updatePost,
   deletePost,
+  toggleLike,
   upload,
 } from '../controllers/postController';
 
@@ -152,5 +153,25 @@ router.put('/:id', authMiddleware, upload.single('image'), updatePost);
  *       404: { description: Post not found }
  */
 router.delete('/:id', authMiddleware, deletePost);
+
+/**
+ * @openapi
+ * /posts/{id}/like:
+ *   post:
+ *     summary: Toggle like on a post (add or remove)
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Updated post with likes array and likesCount }
+ *       401: { description: Unauthorized }
+ *       404: { description: Post not found }
+ */
+router.post('/:id/like', authMiddleware, toggleLike);
 
 export default router;
