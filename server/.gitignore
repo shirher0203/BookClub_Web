@@ -16,6 +16,7 @@ PROJECT_PLAN.md
 
 # Local app for testing (do not commit)
 src/app.local.ts
+src/server.local.ts
 
 # Logs and OS
 *.log

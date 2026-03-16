@@ -7,6 +7,10 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
+export function clearRateLimitForTesting(): void {
+  rateLimitMap.clear();
+}
+
 function getClientIp(req: Request): string {
   const xff = req.headers['x-forwarded-for'];
   if (typeof xff === 'string') return xff.split(',')[0].trim();
