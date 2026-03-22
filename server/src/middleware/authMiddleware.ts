@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 
 /**
- * Placeholder until Developer A implements JWT verification.
- * Returns 401 so protected routes stay closed. Tests use their own stub.
+ * Stub: returns 401 until JWT verification is wired here.
+ * Tests may replace this via a test-only middleware or headers.
  */
 export default function authMiddleware(
   _req: Request,

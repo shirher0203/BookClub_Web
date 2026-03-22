@@ -4,7 +4,34 @@
   padding: 1.5rem;
   color: #5c3d1e;
   background: #fdf6ec;
-  min-height: 100vh;
+  min-height: 100%;
+}
+
+.searchForm {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.searchInput {
+  flex: 1 1 200px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d4a853;
+  border-radius: 8px;
+  font: inherit;
+  background: #fff;
+  color: #5c3d1e;
+}
+
+.searchBtn {
+  padding: 0.5rem 1rem;
+  background: #d4a853;
+  color: #5c3d1e;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .title {
@@ -80,6 +107,15 @@
 }
 
 .list a {
+  color: #5c3d1e;
+}
+
+.userList {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.userList a {
   color: #5c3d1e;
 }
 
