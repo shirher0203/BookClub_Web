@@ -155,4 +155,93 @@ describe('Auth (register/login)', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('POST /refresh', () => {
+    it('should rotate refresh token and return new tokens', async () => {
+      await request(app).post('/api/auth/register').send({
+        username: 'rot_user',
+        email: 'rot@test.com',
+        password: 'mypassword',
+      });
+
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: 'rot@test.com',
+        password: 'mypassword',
+      });
+      expect(loginRes.status).toBe(200);
+      const oldRefresh = loginRes.body.refreshToken as string;
+
+      const res = await request(app).post('/api/auth/refresh').send({
+        refreshToken: oldRefresh,
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('accessToken');
+      expect(res.body).toHaveProperty('refreshToken');
+      expect(typeof res.body.expiresIn).toBe('number');
+      expect(res.body.refreshToken).not.toBe(oldRefresh);
+
+      const oldInDb = await RefreshToken.findOne({ token: oldRefresh });
+      expect(oldInDb).toBeNull();
+      const newInDb = await RefreshToken.findOne({ token: res.body.refreshToken as string });
+      expect(newInDb).not.toBeNull();
+    });
+
+    it('should return 401 for invalid refresh token', async () => {
+      const res = await request(app).post('/api/auth/refresh').send({
+        refreshToken: 'not-a-real-token',
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 401 for expired refresh token', async () => {
+      await request(app).post('/api/auth/register').send({
+        username: 'exp_user',
+        email: 'exp@test.com',
+        password: 'mypassword',
+      });
+
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: 'exp@test.com',
+        password: 'mypassword',
+      });
+      expect(loginRes.status).toBe(200);
+      const refreshTok = loginRes.body.refreshToken as string;
+
+      await RefreshToken.updateOne(
+        { token: refreshTok },
+        { $set: { expiresAt: new Date(Date.now() - 60_000) } }
+      );
+
+      const res = await request(app).post('/api/auth/refresh').send({
+        refreshToken: refreshTok,
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /logout', () => {
+    it('should logout and revoke refresh token', async () => {
+      await request(app).post('/api/auth/register').send({
+        username: 'out_user',
+        email: 'out@test.com',
+        password: 'mypassword',
+      });
+
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: 'out@test.com',
+        password: 'mypassword',
+      });
+      expect(loginRes.status).toBe(200);
+      const refreshTok = loginRes.body.refreshToken as string;
+
+      const res = await request(app).post('/api/auth/logout').send({
+        refreshToken: refreshTok,
+      });
+      expect(res.status).toBe(204);
+
+      const inDb = await RefreshToken.findOne({ token: refreshTok });
+      expect(inDb).toBeNull();
+    });
+  });
 });

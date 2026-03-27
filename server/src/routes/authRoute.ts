@@ -1,6 +1,6 @@
 import 'express-async-errors';
 import { Router } from 'express';
-import { login, register } from '../controllers/authController';
+import { login, logout, refreshToken, register } from '../controllers/authController';
 
 const router = Router();
 
@@ -49,5 +49,47 @@ router.post('/register', register);
  *       401: { description: Invalid credentials (or OAuth user without password) }
  */
 router.post('/login', login);
+
+/**
+ * @openapi
+ * /auth/refresh:
+ *   post:
+ *     summary: Rotate refresh token and issue new tokens
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200: { description: New access token and new refresh token }
+ *       400: { description: Missing refreshToken }
+ *       401: { description: Invalid or expired refresh token }
+ */
+router.post('/refresh', refreshToken);
+
+/**
+ * @openapi
+ * /auth/logout:
+ *   post:
+ *     summary: Logout by revoking refresh token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       204: { description: Refresh token revoked (if present) }
+ */
+router.post('/logout', logout);
 
 export default router;

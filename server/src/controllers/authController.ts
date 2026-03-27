@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt, { type Secret, type SignOptions } from 'jsonwebtoken';
+import crypto from 'crypto';
 import { User } from '../models/userModel';
 import { RefreshToken } from '../models/tokenModel';
 
@@ -13,6 +14,14 @@ type RegisterBody = {
 type LoginBody = {
   email?: unknown;
   password?: unknown;
+};
+
+type RefreshBody = {
+  refreshToken?: unknown;
+};
+
+type LogoutBody = {
+  refreshToken?: unknown;
 };
 
 function isNonEmptyString(v: unknown): v is string {
@@ -60,6 +69,18 @@ function getJwtSecretOrRespond(res: Response, key: 'JWT_SECRET' | 'REFRESH_TOKEN
 function getTtlOrDefault(envKey: 'ACCESS_TOKEN_EXPIRY' | 'REFRESH_TOKEN_EXPIRY', fallback: string): string {
   const val = process.env[envKey];
   return val && val.trim().length > 0 ? val.trim() : fallback;
+}
+
+function signAccessToken(
+  payload: { userId: string; username?: string; email?: string },
+  secret: string,
+  expiresIn: string
+): string {
+  return jwt.sign(payload, secret as Secret, { expiresIn } as SignOptions);
+}
+
+function signRefreshToken(payload: { userId: string; jti: string }, secret: string, expiresIn: string): string {
+  return jwt.sign(payload, secret as Secret, { expiresIn } as SignOptions);
 }
 
 export async function register(req: Request, res: Response): Promise<void> {
@@ -136,15 +157,19 @@ export async function login(req: Request, res: Response): Promise<void> {
   const access = parseTtlToMsAndSeconds(accessTtl);
   const refresh = parseTtlToMsAndSeconds(refreshTtl);
 
-  const accessToken = jwt.sign(
-    { id: userDoc._id.toString() },
-    jwtSecret as Secret,
-    { expiresIn: access.expiresIn } as SignOptions
+  const accessToken = signAccessToken(
+    {
+      userId: userDoc._id.toString(),
+      username: userDoc.username,
+      email: userDoc.email,
+    },
+    jwtSecret,
+    access.expiresIn
   );
-  const refreshToken = jwt.sign(
-    { id: userDoc._id.toString() },
-    refreshSecret as Secret,
-    { expiresIn: refresh.expiresIn } as SignOptions
+  const refreshToken = signRefreshToken(
+    { userId: userDoc._id.toString(), jti: crypto.randomUUID() },
+    refreshSecret,
+    refresh.expiresIn
   );
 
   const expiresAt = new Date(Date.now() + refresh.ttlMs);
@@ -161,4 +186,100 @@ export async function login(req: Request, res: Response): Promise<void> {
     refreshToken,
     expiresIn: access.expiresInSeconds,
   });
+}
+
+export async function refreshToken(req: Request, res: Response): Promise<void> {
+  const body = req.body as RefreshBody;
+  const token = body.refreshToken;
+
+  if (!isNonEmptyString(token)) {
+    res.status(400).json({ message: 'refreshToken is required.' });
+    return;
+  }
+
+  const tokenTrim = token.trim();
+  const stored = await RefreshToken.findOne({ token: tokenTrim });
+  if (!stored) {
+    res.status(401).json({ message: 'Invalid refresh token.' });
+    return;
+  }
+
+  const now = Date.now();
+  if (stored.expiresAt.getTime() < now) {
+    await stored.deleteOne();
+    res.status(401).json({ message: 'Refresh token expired.' });
+    return;
+  }
+
+  // Rotation: delete the used token before issuing a new one.
+  await stored.deleteOne();
+
+  const refreshSecret = getJwtSecretOrRespond(res, 'REFRESH_TOKEN_SECRET');
+  if (!refreshSecret) return;
+  const jwtSecret = getJwtSecretOrRespond(res, 'JWT_SECRET');
+  if (!jwtSecret) return;
+
+  let decodedUserId: string | null = null;
+  try {
+    const decoded = jwt.verify(tokenTrim, refreshSecret as Secret) as { userId?: unknown; id?: unknown };
+    const uid = typeof decoded.userId === 'string' ? decoded.userId : typeof decoded.id === 'string' ? decoded.id : null;
+    decodedUserId = uid;
+  } catch {
+    res.status(401).json({ message: 'Invalid refresh token.' });
+    return;
+  }
+
+  if (!decodedUserId) {
+    res.status(401).json({ message: 'Invalid refresh token.' });
+    return;
+  }
+
+  const user = await User.findById(decodedUserId).select('username email').lean();
+  if (!user) {
+    res.status(401).json({ message: 'Invalid refresh token.' });
+    return;
+  }
+
+  const accessTtl = getTtlOrDefault('ACCESS_TOKEN_EXPIRY', '15m');
+  const refreshTtl = getTtlOrDefault('REFRESH_TOKEN_EXPIRY', '7d');
+  const access = parseTtlToMsAndSeconds(accessTtl);
+  const refresh = parseTtlToMsAndSeconds(refreshTtl);
+
+  const newAccessToken = signAccessToken(
+    {
+      userId: decodedUserId,
+      username: user.username,
+      email: user.email,
+    },
+    jwtSecret,
+    access.expiresIn
+  );
+  const newRefreshToken = signRefreshToken(
+    { userId: decodedUserId, jti: crypto.randomUUID() },
+    refreshSecret,
+    refresh.expiresIn
+  );
+
+  await RefreshToken.create({
+    token: newRefreshToken,
+    userId: user._id,
+    expiresAt: new Date(Date.now() + refresh.ttlMs),
+  });
+
+  res.status(200).json({
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+    expiresIn: access.expiresInSeconds,
+  });
+}
+
+export async function logout(req: Request, res: Response): Promise<void> {
+  const body = req.body as LogoutBody;
+  const token = body.refreshToken;
+
+  if (isNonEmptyString(token)) {
+    await RefreshToken.deleteOne({ token: token.trim() });
+  }
+
+  res.status(204).send();
 }
