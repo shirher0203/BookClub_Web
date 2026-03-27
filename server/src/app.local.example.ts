@@ -9,6 +9,7 @@ import aiRoute from './routes/aiRoute';
 import searchRoute from './routes/searchRoute';
 import postRoute from './routes/postRoute';
 import commentRoute from './routes/commentRoute';
+import authRoute from './routes/authRoute';
 // import authRoute from './routes/authRoute';
 // import userRoute from './routes/userRoute';
 
@@ -26,7 +27,7 @@ app.use('/api/ai', aiRoute);
 app.use('/api/search', searchRoute);
 app.use('/api/posts', postRoute);
 app.use('/api/comments', commentRoute);
-// app.use('/api/auth', authRoute);
+app.use('/api/auth', authRoute);
 // app.use('/api/users', userRoute);
 
 export default app;
