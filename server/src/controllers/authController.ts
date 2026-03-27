@@ -83,6 +83,42 @@ function signRefreshToken(payload: { userId: string; jti: string }, secret: stri
   return jwt.sign(payload, secret as Secret, { expiresIn } as SignOptions);
 }
 
+async function issueTokensForUser(
+  res: Response,
+  user: { _id: unknown; username?: string; email?: string }
+): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+  const jwtSecret = getJwtSecretOrRespond(res, 'JWT_SECRET');
+  if (!jwtSecret) throw new Error('missing_jwt_secret');
+  const refreshSecret = getJwtSecretOrRespond(res, 'REFRESH_TOKEN_SECRET');
+  if (!refreshSecret) throw new Error('missing_refresh_secret');
+
+  const accessTtl = getTtlOrDefault('ACCESS_TOKEN_EXPIRY', '15m');
+  const refreshTtl = getTtlOrDefault('REFRESH_TOKEN_EXPIRY', '7d');
+
+  const access = parseTtlToMsAndSeconds(accessTtl);
+  const refresh = parseTtlToMsAndSeconds(refreshTtl);
+
+  const userId = String(user._id);
+  const accessToken = signAccessToken(
+    { userId, username: user.username, email: user.email },
+    jwtSecret,
+    access.expiresIn
+  );
+  const refreshToken = signRefreshToken(
+    { userId, jti: crypto.randomUUID() },
+    refreshSecret,
+    refresh.expiresIn
+  );
+
+  await RefreshToken.create({
+    token: refreshToken,
+    userId: userId,
+    expiresAt: new Date(Date.now() + refresh.ttlMs),
+  });
+
+  return { accessToken, refreshToken, expiresIn: access.expiresInSeconds };
+}
+
 export async function register(req: Request, res: Response): Promise<void> {
   const body = req.body as RegisterBody;
   const username = body.username;
@@ -146,45 +182,14 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const jwtSecret = getJwtSecretOrRespond(res, 'JWT_SECRET');
-  if (!jwtSecret) return;
-  const refreshSecret = getJwtSecretOrRespond(res, 'REFRESH_TOKEN_SECRET');
-  if (!refreshSecret) return;
-
-  const accessTtl = getTtlOrDefault('ACCESS_TOKEN_EXPIRY', '15m');
-  const refreshTtl = getTtlOrDefault('REFRESH_TOKEN_EXPIRY', '7d');
-
-  const access = parseTtlToMsAndSeconds(accessTtl);
-  const refresh = parseTtlToMsAndSeconds(refreshTtl);
-
-  const accessToken = signAccessToken(
-    {
-      userId: userDoc._id.toString(),
-      username: userDoc.username,
-      email: userDoc.email,
-    },
-    jwtSecret,
-    access.expiresIn
-  );
-  const refreshToken = signRefreshToken(
-    { userId: userDoc._id.toString(), jti: crypto.randomUUID() },
-    refreshSecret,
-    refresh.expiresIn
-  );
-
-  const expiresAt = new Date(Date.now() + refresh.ttlMs);
-  await RefreshToken.create({
-    token: refreshToken,
-    userId: userDoc._id,
-    expiresAt,
-  });
+  const { accessToken, refreshToken, expiresIn } = await issueTokensForUser(res, userDoc);
 
   const user = await User.findById(userDoc._id).select('-password').lean();
   res.status(200).json({
     user: user ? user : sanitizeUser(userDoc.toObject()),
     accessToken,
     refreshToken,
-    expiresIn: access.expiresInSeconds,
+    expiresIn,
   });
 }
 
@@ -282,4 +287,28 @@ export async function logout(req: Request, res: Response): Promise<void> {
   }
 
   res.status(204).send();
+}
+
+export async function googleOAuthCallback(req: Request, res: Response): Promise<void> {
+  // Passport attaches the full user document to req.user.
+  const passportUser = (req as unknown as { user?: { _id: unknown; username?: string; email?: string } }).user;
+  if (!passportUser) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+
+  const clientUrl = process.env.CLIENT_URL;
+  if (!clientUrl || clientUrl.trim().length === 0) {
+    res.status(500).json({ message: 'Server misconfigured (missing CLIENT_URL).' });
+    return;
+  }
+
+  const { accessToken, refreshToken, expiresIn } = await issueTokensForUser(res, passportUser);
+
+  const redirectTo = new URL('/oauth-success', clientUrl);
+  redirectTo.searchParams.set('accessToken', accessToken);
+  redirectTo.searchParams.set('refreshToken', refreshToken);
+  redirectTo.searchParams.set('expiresIn', String(expiresIn));
+
+  res.redirect(redirectTo.toString());
 }
