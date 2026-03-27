@@ -1,0 +1,77 @@
+.item {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0e6d8;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #d4a853;
+  flex-shrink: 0;
+}
+
+.avatarPh {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #d4a853;
+  color: #5c3d1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+}
+
+.name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.time {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.delete {
+  background: transparent;
+  border: none;
+  color: #8b2500;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  flex-shrink: 0;
+}
+
+.delete:disabled {
+  opacity: 0.5;
+}

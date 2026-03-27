@@ -1,0 +1,19 @@
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.title {
+  margin: 0 0 1.25rem;
+  font-size: 1.5rem;
+  color: #5c3d1e;
+}
+
+.error {
+  color: #8b2500;
+}
+
+.page a {
+  color: #5c3d1e;
+}

@@ -1,0 +1,82 @@
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.back {
+  margin: 0 0 1rem;
+}
+
+.back a {
+  color: #5c3d1e;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.back a:hover {
+  text-decoration: underline;
+}
+
+.section {
+  margin-top: 1.5rem;
+}
+
+.h2 {
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+  color: #5c3d1e;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+}
+
+.none {
+  opacity: 0.85;
+  font-size: 0.95rem;
+}
+
+.error {
+  color: #8b2500;
+}
+
+.form {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d4a853;
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: #5c3d1e;
+}
+
+.textarea {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #d4a853;
+  border-radius: 8px;
+  font: inherit;
+  margin-bottom: 0.75rem;
+  background: #fff;
+  color: #5c3d1e;
+}
+
+.submit {
+  padding: 0.45rem 1rem;
+  background: #d4a853;
+  color: #5c3d1e;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

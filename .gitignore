@@ -22,5 +22,6 @@ PROJECT_PLAN.md
 # IDE
 .idea
 .vscode
+.cursor
 *.swp
 *.swo

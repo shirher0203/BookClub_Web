@@ -1,0 +1,110 @@
+.page {
+  min-height: min(70vh, 520px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  color: #5c3d1e;
+  background: radial-gradient(
+      ellipse 120% 80% at 50% -20%,
+      rgba(212, 168, 83, 0.18),
+      transparent 55%
+    ),
+    #fdf6ec;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem 1.75rem 1.75rem;
+  background: #fffefb;
+  border: 1px solid rgba(212, 168, 83, 0.55);
+  border-radius: 16px;
+  box-shadow:
+    0 4px 24px rgba(92, 61, 30, 0.08),
+    0 1px 3px rgba(92, 61, 30, 0.06);
+}
+
+.accent {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 4px;
+  border-radius: 0 0 8px 8px;
+  background: linear-gradient(90deg, #c9a227, #d4a853, #e8c066);
+}
+
+.message {
+  margin: 0.5rem 0 1.5rem;
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+  letter-spacing: -0.02em;
+  color: #4a3018;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.btnPrimary,
+.btnSecondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.7rem 1.25rem;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.btnPrimary {
+  color: #3d2914;
+  background: linear-gradient(180deg, #e8c066 0%, #d4a853 45%, #c49a3c 100%);
+  border: 1px solid #a67c2e;
+  box-shadow: 0 2px 8px rgba(166, 124, 46, 0.25);
+}
+
+.btnPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(166, 124, 46, 0.35);
+}
+
+.btnPrimary:active {
+  transform: translateY(0);
+}
+
+.btnSecondary {
+  color: #5c3d1e;
+  background: #fdf6ec;
+  border: 1px solid #d4a853;
+  box-shadow: none;
+}
+
+.btnSecondary:hover {
+  background: #faf3e8;
+  border-color: #c9a227;
+  transform: translateY(-1px);
+}
+
+.btnSecondary:active {
+  transform: translateY(0);
+}

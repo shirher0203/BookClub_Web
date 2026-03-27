@@ -1,0 +1,96 @@
+.form {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #5c3d1e;
+}
+
+.req {
+  color: #b83b3b;
+}
+
+.input,
+.textarea {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #d4a853;
+  border-radius: 8px;
+  font: inherit;
+  background: #fff;
+  color: #5c3d1e;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.file {
+  font-size: 0.9rem;
+}
+
+.fieldset {
+  border: 1px solid #d4a853;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0;
+}
+
+.legend {
+  padding: 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #5c3d1e;
+}
+
+.starsRow {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.starBtn,
+.starBtnActive {
+  background: #fff;
+  border: 1px solid #d4a853;
+  border-radius: 6px;
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  color: #e8dcc8;
+}
+
+.starBtnActive {
+  color: #d4a853;
+  background: #fdf6ec;
+}
+
+.error {
+  color: #8b2500;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.submit {
+  align-self: flex-start;
+  padding: 0.6rem 1.25rem;
+  background: #d4a853;
+  color: #5c3d1e;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

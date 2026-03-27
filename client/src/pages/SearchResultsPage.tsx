@@ -1,6 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { FormEvent, useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/axios';
+import { PostCard } from '../components/PostCard';
+import { getUserIdFromAccessToken } from '../utils/jwt';
+import { normalizePost } from '../utils/normalizePost';
+import type { Post } from '../types';
 import styles from './SearchResultsPage.module.css';
 
 interface ParsedQueryChip {
@@ -37,16 +41,33 @@ interface RegularAllResponse {
 
 type TabId = 'smart' | 'all';
 
+function searchHitToPost(p: SearchPost): Post {
+  return {
+    id: String(p._id),
+    userId: '',
+    bookName: p.bookName,
+    bookAuthor: p.bookAuthor,
+    text: '',
+    likesCount: 0,
+    commentsCount: 0,
+    createdAt: '',
+  };
+}
+
 export function SearchResultsPage(): JSX.Element {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const q = params.get('q')?.trim() ?? '';
-
+  const [input, setInput] = useState(q);
   const [tab, setTab] = useState<TabId>('smart');
   const [aiLoading, setAiLoading] = useState(false);
   const [regLoading, setRegLoading] = useState(false);
   const [aiData, setAiData] = useState<AiSearchResponse | null>(null);
   const [regData, setRegData] = useState<RegularAllResponse | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const currentUserId = getUserIdFromAccessToken();
+
+  useEffect(() => setInput(q), [q]);
 
   useEffect(() => {
     if (!q) {
@@ -78,15 +99,47 @@ export function SearchResultsPage(): JSX.Element {
       .finally(() => setRegLoading(false));
   }, [q]);
 
+  function onSearch(e: FormEvent): void {
+    e.preventDefault();
+    const v = input.trim();
+    if (v) navigate(`/search?q=${encodeURIComponent(v)}`);
+  }
+
+  const aiPosts: Post[] =
+    aiData?.results?.map((r) =>
+      normalizePost(r as Record<string, unknown>)
+    ) ?? [];
+
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Search</h1>
+
+      <form className={styles.searchForm} onSubmit={onSearch} role="search">
+        <label htmlFor="search-page-input" className={styles.srOnly}>
+          Search books and members
+        </label>
+        <input
+          id="search-page-input"
+          className={styles.searchInput}
+          type="search"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Search by book, author, genre…"
+          autoComplete="off"
+        />
+        <button type="submit" className={styles.searchBtn}>
+          Search
+        </button>
+      </form>
+
       {q ? (
         <p className={styles.query}>
           Results for: <strong>{q}</strong>
         </p>
       ) : (
-        <p className={styles.hint}>Add a search query in the URL, e.g. /search?q=fantasy</p>
+        <p className={styles.hint}>
+          Type a query and press Search, or use the bar in the header.
+        </p>
       )}
 
       <div className={styles.tabs}>
@@ -116,13 +169,13 @@ export function SearchResultsPage(): JSX.Element {
           {!aiLoading && aiData && (
             <>
               <div className={styles.chips}>
-                {aiData.parsedQuery.genres?.map((g) => (
-                  <span key={g} className={styles.chip}>
+                {aiData.parsedQuery.genres?.map((g, i) => (
+                  <span key={`g-${i}-${g}`} className={styles.chip}>
                     {g}
                   </span>
                 ))}
-                {aiData.parsedQuery.authorKeywords?.map((a) => (
-                  <span key={a} className={styles.chip}>
+                {aiData.parsedQuery.authorKeywords?.map((a, i) => (
+                  <span key={`a-${i}-${a}`} className={styles.chip}>
                     author: {a}
                   </span>
                 ))}
@@ -133,19 +186,18 @@ export function SearchResultsPage(): JSX.Element {
                       {aiData.parsedQuery.yearRange.start ?? '…'}–
                       {aiData.parsedQuery.yearRange.end ?? '…'}
                     </span>
-                )}
+                  )}
               </div>
               <p className={styles.meta}>{aiData.total} result(s)</p>
-              <ul className={styles.list}>
-                {(aiData.results as SearchPost[]).map((p) => (
-                  <li key={String(p._id)}>
-                    <Link to={`/posts/${String(p._id)}/comments`}>
-                      {p.bookName}
-                      {p.bookAuthor ? ` · ${p.bookAuthor}` : ''}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {aiPosts.length === 0 && <p>No matching posts.</p>}
+              {aiPosts.map((p) => (
+                <PostCard
+                  key={p.id}
+                  post={p}
+                  currentUserId={currentUserId}
+                  compact
+                />
+              ))}
             </>
           )}
         </section>
@@ -160,7 +212,7 @@ export function SearchResultsPage(): JSX.Element {
           {!regLoading && regData && (
             <>
               <h3 className={styles.subheading}>Users</h3>
-              <ul className={styles.list}>
+              <ul className={styles.userList}>
                 {regData.users.map((u) => (
                   <li key={u._id}>
                     <Link to={`/profile/${u._id}`}>{u.username}</Link>
@@ -168,23 +220,22 @@ export function SearchResultsPage(): JSX.Element {
                 ))}
               </ul>
               <h3 className={styles.subheading}>Posts</h3>
-              <ul className={styles.list}>
-                {regData.posts.map((p) => (
-                  <li key={p._id}>
-                    <Link to={`/posts/${p._id}/comments`}>
-                      {p.bookName}
-                      {p.bookAuthor ? ` · ${p.bookAuthor}` : ''}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {regData.posts.length === 0 && <p>No matching posts.</p>}
+              {regData.posts.map((p) => (
+                <PostCard
+                  key={p._id}
+                  post={searchHitToPost(p)}
+                  currentUserId={currentUserId}
+                  compact
+                />
+              ))}
             </>
           )}
         </section>
       )}
 
       <p className={styles.back}>
-        <Link to="/">Back to home</Link>
+        <Link to="/feed">Back to feed</Link>
       </p>
     </div>
   );

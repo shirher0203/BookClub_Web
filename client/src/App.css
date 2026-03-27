@@ -1,0 +1,11 @@
+.appMain {
+  min-height: calc(100vh - 56px);
+  background: #fdf6ec;
+}
+
+.placeholder {
+  padding: 1.5rem 1.25rem;
+  max-width: 640px;
+  margin: 0 auto;
+  color: #5c3d1e;
+}
