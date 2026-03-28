@@ -1,0 +1,114 @@
+.page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #5c3d1e;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #a67c2e;
+  text-decoration: none;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.card {
+  background: #fffefb;
+  border: 1px solid rgba(212, 168, 83, 0.5);
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 4px 20px rgba(92, 61, 30, 0.06);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(212, 168, 83, 0.55);
+  background: #fdf6ec;
+}
+
+.avatarPh {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #5c3d1e;
+  background: linear-gradient(145deg, rgba(253, 246, 236, 0.9), rgba(212, 168, 83, 0.35));
+  border: 3px solid rgba(212, 168, 83, 0.55);
+}
+
+.name {
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #4a3018;
+}
+
+.email {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: rgba(92, 61, 30, 0.8);
+}
+
+.meta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
+  color: rgba(92, 61, 30, 0.7);
+}
+
+.meta li {
+  margin-bottom: 0.35rem;
+}
+
+.editLink {
+  display: inline-flex;
+  margin-top: 1.25rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #3d2914;
+  text-decoration: none;
+  background: linear-gradient(180deg, #e8c066 0%, #d4a853 50%, #c49a3c 100%);
+  border: 1px solid #a67c2e;
+  box-shadow: 0 2px 8px rgba(166, 124, 46, 0.2);
+}
+
+.editLink:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 2rem;
+}
+
+.error {
+  color: #7a2e2e;
+}
