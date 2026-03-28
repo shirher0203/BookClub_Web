@@ -10,8 +10,7 @@ import searchRoute from './routes/searchRoute';
 import postRoute from './routes/postRoute';
 import commentRoute from './routes/commentRoute';
 import authRoute from './routes/authRoute';
-// import authRoute from './routes/authRoute';
-// import userRoute from './routes/userRoute';
+import userRoute from './routes/userRoute';
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
@@ -28,6 +27,6 @@ app.use('/api/search', searchRoute);
 app.use('/api/posts', postRoute);
 app.use('/api/comments', commentRoute);
 app.use('/api/auth', authRoute);
-// app.use('/api/users', userRoute);
+app.use('/api/users', userRoute);
 
 export default app;
