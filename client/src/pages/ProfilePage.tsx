@@ -1,11 +1,65 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/axios';
+import { PostCard } from '../components/PostCard';
 import { useAuth } from '../context/AuthContext';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { assetUrl } from '../utils/assetUrl';
 import { normalizeUserFromApi } from '../utils/authUser';
-import type { User } from '../types';
+import { normalizePost } from '../utils/normalizePost';
+import type { Post, User } from '../types';
 import styles from './ProfilePage.module.css';
+
+function ProfilePostsSection({
+  userId,
+  currentUserId,
+}: {
+  userId: string;
+  currentUserId: string | null;
+}): JSX.Element {
+  const fetchPage = useCallback(
+    async (skip: number, limit: number) => {
+      const res = await api.get<{ posts: unknown[]; total: number }>(`/posts/user/${userId}`, {
+        params: { skip, limit },
+      });
+      return {
+        items: res.data.posts.map((p) => normalizePost(p as Record<string, unknown>)),
+        total: res.data.total,
+      };
+    },
+    [userId]
+  );
+
+  const { items, loading, loadMoreRef, hasMore, error } = useInfiniteScroll<Post>(fetchPage, 20);
+
+  const showSentinel = useMemo(() => hasMore && items.length > 0, [hasMore, items.length]);
+
+  return (
+    <section className={styles.postsSection} aria-labelledby="profile-posts-heading">
+      <h2 id="profile-posts-heading" className={styles.postsTitle}>
+        Posts
+      </h2>
+      {error && <p className={styles.postsError}>{error}</p>}
+      {items.length === 0 && !loading && !error && (
+        <p className={styles.postsEmpty}>No posts yet.</p>
+      )}
+      {items.map((post) => (
+        <PostCard key={post.id} post={post} currentUserId={currentUserId} />
+      ))}
+      {loading && items.length === 0 && <p className={styles.postsLoading}>Loading…</p>}
+      {loading && items.length > 0 && (
+        <p className={styles.postsLoadingMore}>Loading more…</p>
+      )}
+      {showSentinel && (
+        <div
+          ref={loadMoreRef as RefObject<HTMLDivElement>}
+          className={styles.postsSentinel}
+          aria-hidden
+        />
+      )}
+    </section>
+  );
+}
 
 export function ProfilePage(): JSX.Element {
   const { id: routeId } = useParams<{ id: string }>();
@@ -83,6 +137,7 @@ export function ProfilePage(): JSX.Element {
 
   const imgSrc = assetUrl(profile.profileImage);
   const initial = profile.username.slice(0, 1).toUpperCase();
+  const currentUserId = authUser?.id ?? null;
 
   return (
     <div className={styles.page}>
@@ -120,6 +175,8 @@ export function ProfilePage(): JSX.Element {
           </Link>
         )}
       </div>
+
+      <ProfilePostsSection key={targetId} userId={targetId} currentUserId={currentUserId} />
     </div>
   );
 }

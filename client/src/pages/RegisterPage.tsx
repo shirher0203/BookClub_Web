@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleAuthSection } from '../components/GoogleAuthSection';
 import { useAuth } from '../context/AuthContext';
 import styles from './RegisterPage.module.css';
 
@@ -19,8 +20,24 @@ export function RegisterPage(): JSX.Element {
     try {
       await register(username.trim(), email.trim(), password);
       navigate('/feed', { replace: true });
-    } catch {
-      setError('Could not create your account. Try a different username or email.');
+    } catch (err: unknown) {
+      const data =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        (err as { response?: { data?: unknown } }).response?.data;
+      const msg =
+        data &&
+        typeof data === 'object' &&
+        data !== null &&
+        'message' in data &&
+        typeof (data as { message: unknown }).message === 'string'
+          ? (data as { message: string }).message.trim()
+          : '';
+      setError(
+        msg ||
+          'Could not create your account. Try a different username or email, or check that the API is running.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -85,6 +102,8 @@ export function RegisterPage(): JSX.Element {
             {submitting ? 'Creating account…' : 'Create account'}
           </button>
         </form>
+
+        <GoogleAuthSection formBusy={submitting} />
 
         <p className={styles.footer}>
           Already have an account? <Link to="/login">Sign in</Link>

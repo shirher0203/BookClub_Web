@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { GoogleAuthSection } from '../components/GoogleAuthSection';
 import { useAuth } from '../context/AuthContext';
 import styles from './LoginPage.module.css';
 
@@ -73,6 +74,8 @@ export function LoginPage(): JSX.Element {
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <GoogleAuthSection formBusy={submitting} />
 
         <p className={styles.footer}>
           No account yet? <Link to="/register">Create one</Link>

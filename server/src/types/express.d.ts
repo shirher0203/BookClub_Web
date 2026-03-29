@@ -1,12 +1,15 @@
 declare global {
   namespace Express {
-    /** Merged with Passport's `Express.User` so `req.user` is typed for JWT + OAuth. */
     interface User {
-      /** Set by authMiddleware; Mongoose docs may expose only `_id`. */
-      id?: string;
-      _id?: unknown;
+      id: string;
       username?: string;
       email?: string;
+      /** Set for OAuth flows that still read `user._id` when issuing tokens. */
+      _id?: unknown;
+    }
+
+    interface Request {
+      user?: User;
     }
   }
 }

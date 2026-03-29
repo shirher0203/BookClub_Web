@@ -1,7 +1,12 @@
 import 'express-async-errors';
 import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware';
-import { getProfile, profileImageUpload, updateProfile } from '../controllers/userController';
+import {
+  type AuthRequest,
+  getProfile,
+  profileImageUpload,
+  updateProfile,
+} from '../controllers/userController';
 
 const router = Router();
 
@@ -29,7 +34,9 @@ const router = Router();
  *       401: { description: Unauthorized }
  *       404: { description: User not found }
  */
-router.put('/profile', authMiddleware, profileImageUpload.single('profileImage'), updateProfile);
+router.put('/profile', authMiddleware, profileImageUpload.single('profileImage'), (req, res) =>
+  updateProfile(req as AuthRequest, res)
+);
 
 /**
  * @openapi
