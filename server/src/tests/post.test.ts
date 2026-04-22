@@ -235,6 +235,22 @@ describe('Feed pagination', () => {
     expect(res.body.posts[0].bookName).toBe('A Book');
     expect(res.body.total).toBe(1);
   });
+
+  it('should order user posts by createdAt descending (newest first)', async () => {
+    const user = await User.create(USERS.FEED);
+    await Post.create({ ...POSTS.OLDER, userId: user._id });
+    await Post.create({ ...POSTS.NEWER, userId: user._id });
+    const res = await request(app).get(`/posts/user/${user._id}?limit=10`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(2);
+    expect(res.body.posts[0].bookName).toBe('Newer');
+    expect(res.body.posts[1].bookName).toBe('Older');
+  });
+
+  it('should return 400 for invalid user id on user posts', async () => {
+    const res = await request(app).get('/posts/user/not-an-objectid?limit=10');
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('Likes', () => {

@@ -1,0 +1,25 @@
+.boot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 40vh;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.95rem;
+  color: #5c3d1e;
+}
+
+.spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(212, 168, 83, 0.35);
+  border-top-color: #d4a853;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

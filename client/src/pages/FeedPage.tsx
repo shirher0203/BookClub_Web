@@ -2,14 +2,15 @@ import { useCallback, useMemo, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/axios';
 import { PostCard } from '../components/PostCard';
+import { useAuth } from '../context/AuthContext';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
-import { getUserIdFromAccessToken } from '../utils/jwt';
 import { normalizePost } from '../utils/normalizePost';
 import type { Post } from '../types';
 import styles from './FeedPage.module.css';
 
 export function FeedPage(): JSX.Element {
-  const currentUserId = getUserIdFromAccessToken();
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
 
   const fetchPage = useCallback(
     async (skip: number, limit: number) => {
