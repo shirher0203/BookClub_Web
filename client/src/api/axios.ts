@@ -11,6 +11,14 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+type TokenListener = ((tokens: { accessToken: string; refreshToken: string }) => void) | null;
+
+let tokenListener: TokenListener = null;
+
+export function setAuthTokenListener(fn: TokenListener): void {
+  tokenListener = fn;
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token) {
@@ -24,23 +32,54 @@ api.interceptors.request.use((config) => {
 
 let refreshPromise: Promise<string | null> | null = null;
 
+function redirectToLogin(): void {
+  if (window.location.pathname === '/login' || window.location.pathname === '/register') {
+    return;
+  }
+  window.location.assign('/login');
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const refresh = localStorage.getItem('refreshToken');
   if (!refresh) return null;
   try {
-    const res = await axios.post<{ accessToken?: string }>(
+    const res = await axios.post<{
+      accessToken?: string;
+      refreshToken?: string;
+      expiresIn?: number;
+    }>(
       `${baseURL}/auth/refresh`,
       { refreshToken: refresh },
       { headers: { 'Content-Type': 'application/json' } }
     );
-    const next = res.data.accessToken;
-    if (next) localStorage.setItem('accessToken', next);
-    return next ?? null;
+    const nextAccess = res.data.accessToken;
+    const nextRefresh = res.data.refreshToken;
+    if (!nextAccess || !nextRefresh) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('authUser');
+      return null;
+    }
+    localStorage.setItem('accessToken', nextAccess);
+    localStorage.setItem('refreshToken', nextRefresh);
+    tokenListener?.({ accessToken: nextAccess, refreshToken: nextRefresh });
+    return nextAccess;
   } catch {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('authUser');
     return null;
   }
+}
+
+function shouldSkipAuthRetry(url: string | undefined): boolean {
+  if (!url) return false;
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/register') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/logout')
+  );
 }
 
 api.interceptors.response.use(
@@ -51,6 +90,12 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     if (!original) return Promise.reject(error);
+
+    const reqUrl = typeof original.url === 'string' ? original.url : '';
+    if (shouldSkipAuthRetry(reqUrl)) {
+      return Promise.reject(error);
+    }
+
     original._retry = true;
     if (!refreshPromise) {
       refreshPromise = refreshAccessToken().finally(() => {
@@ -62,6 +107,7 @@ api.interceptors.response.use(
       original.headers.Authorization = `Bearer ${newToken}`;
       return api(original);
     }
+    redirectToLogin();
     return Promise.reject(error);
   }
 );

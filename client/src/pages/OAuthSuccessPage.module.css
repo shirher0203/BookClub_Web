@@ -1,0 +1,48 @@
+.page {
+  min-height: min(60vh, 400px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #5c3d1e;
+  background: #fdf6ec;
+}
+
+.card {
+  text-align: center;
+  max-width: 360px;
+}
+
+.title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.35rem;
+  margin: 0 0 0.5rem;
+}
+
+.text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(92, 61, 30, 0.75);
+}
+
+.error {
+  color: #7a2e2e;
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  margin: 0 auto 1rem;
+  border: 3px solid rgba(212, 168, 83, 0.35);
+  border-top-color: #d4a853;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

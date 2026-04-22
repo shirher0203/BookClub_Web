@@ -151,6 +151,96 @@
   opacity: 0.95;
 }
 
+.auth {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.authMuted {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  padding: 0 0.35rem;
+}
+
+.authLink {
+  padding: 0.45rem 0.75rem;
+  border-radius: 9px;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fdf6ec;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: background 0.18s ease;
+}
+
+.authLink:hover {
+  background: rgba(255, 255, 255, 0.14);
+  text-decoration: none;
+}
+
+.authRegister {
+  padding: 0.45rem 0.85rem;
+  border-radius: 9px;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #3d2914;
+  text-decoration: none;
+  background: linear-gradient(180deg, #e8c066 0%, #d4a853 50%, #c49a3c 100%);
+  border: 1px solid #a67c2e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.authRegister:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  text-decoration: none;
+}
+
+.logoutBtn {
+  padding: 0.45rem 0.75rem;
+  border-radius: 9px;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fdf6ec;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.logoutBtn:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.avatarImg {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatarLetter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #5c3d1e;
+  background: #fdf6ec;
+}
+
 @media (max-width: 720px) {
   .searchWrap {
     flex-basis: 100%;
@@ -162,5 +252,10 @@
   .profileBtn {
     order: 3;
     margin-left: auto;
+  }
+
+  .auth {
+    order: 3;
+    margin-left: 0;
   }
 }
