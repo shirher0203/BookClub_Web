@@ -3,9 +3,19 @@ import { Router } from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy, type Profile } from 'passport-google-oauth20';
 import { googleOAuthCallback, login, logout, refreshToken, register } from '../controllers/authController';
-import { User } from '../models/userModel';
+import type { HydratedDocument } from 'mongoose';
+import { User, type IUser } from '../models/userModel';
 
 const router = Router();
+
+function toPassportUser(doc: HydratedDocument<IUser>): Express.User {
+  return {
+    id: doc.id,
+    username: doc.username,
+    email: doc.email,
+    _id: doc._id,
+  };
+}
 router.use(passport.initialize());
 
 let googleConfigured = false;
@@ -60,7 +70,7 @@ function ensureGoogleConfigured(): void {
 
           const byGoogle = await User.findOne({ googleId });
           if (byGoogle) {
-            done(null, byGoogle);
+            done(null, toPassportUser(byGoogle));
             return;
           }
 
@@ -68,7 +78,7 @@ function ensureGoogleConfigured(): void {
           if (byEmail) {
             byEmail.googleId = googleId;
             await byEmail.save();
-            done(null, byEmail);
+            done(null, toPassportUser(byEmail));
             return;
           }
 
@@ -80,7 +90,7 @@ function ensureGoogleConfigured(): void {
             googleId,
             profileImage: '',
           });
-          done(null, created);
+          done(null, toPassportUser(created));
         } catch (e) {
           done(e as Error);
         }

@@ -28,11 +28,26 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0;
 }
 
-function sanitizeUser(user: unknown): Record<string, unknown> {
-  const obj = user as Record<string, unknown>;
-  // Ensure we never accidentally return the hashed password.
-  const { password: _password, ...rest } = obj;
-  return rest;
+/** Plain JSON for API responses (avoids lean/BSON edge cases with res.json). */
+function publicUserJson(user: {
+  _id: unknown;
+  username?: string;
+  email?: string;
+  profileImage?: string;
+  googleId?: string;
+  createdAt?: Date;
+}): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    _id: String(user._id),
+    username: String(user.username ?? ''),
+    email: String(user.email ?? ''),
+    profileImage: typeof user.profileImage === 'string' ? user.profileImage : '',
+    createdAt: user.createdAt,
+  };
+  if (user.googleId != null && user.googleId !== '') {
+    base.googleId = user.googleId;
+  }
+  return base;
 }
 
 type JwtTtl = { expiresIn: string; expiresInSeconds: number; ttlMs: number };
@@ -86,11 +101,11 @@ function signRefreshToken(payload: { userId: string; jti: string }, secret: stri
 async function issueTokensForUser(
   res: Response,
   user: { _id: unknown; username?: string; email?: string }
-): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+): Promise<{ accessToken: string; refreshToken: string; expiresIn: number } | null> {
   const jwtSecret = getJwtSecretOrRespond(res, 'JWT_SECRET');
-  if (!jwtSecret) throw new Error('missing_jwt_secret');
+  if (!jwtSecret) return null;
   const refreshSecret = getJwtSecretOrRespond(res, 'REFRESH_TOKEN_SECRET');
-  if (!refreshSecret) throw new Error('missing_refresh_secret');
+  if (!refreshSecret) return null;
 
   const accessTtl = getTtlOrDefault('ACCESS_TOKEN_EXPIRY', '15m');
   const refreshTtl = getTtlOrDefault('REFRESH_TOKEN_EXPIRY', '7d');
@@ -112,7 +127,7 @@ async function issueTokensForUser(
 
   await RefreshToken.create({
     token: refreshToken,
-    userId: userId,
+    userId,
     expiresAt: new Date(Date.now() + refresh.ttlMs),
   });
 
@@ -154,7 +169,24 @@ export async function register(req: Request, res: Response): Promise<void> {
 
   // Re-fetch without password to guarantee we never return it.
   const user = await User.findById(created._id).select('-password').lean();
-  res.status(201).json(user ? user : sanitizeUser(created.toObject()));
+  const payload = user
+    ? publicUserJson({
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        profileImage: user.profileImage,
+        googleId: user.googleId,
+        createdAt: user.createdAt,
+      })
+    : publicUserJson({
+        _id: created._id,
+        username: created.username,
+        email: created.email,
+        profileImage: created.profileImage,
+        googleId: created.googleId,
+        createdAt: created.createdAt,
+      });
+  res.status(201).json(payload);
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
@@ -182,14 +214,33 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const { accessToken, refreshToken, expiresIn } = await issueTokensForUser(res, userDoc);
+  const tokens = await issueTokensForUser(res, userDoc);
+  if (!tokens) return;
 
   const user = await User.findById(userDoc._id).select('-password').lean();
+  const userPayload = user
+    ? publicUserJson({
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        profileImage: user.profileImage,
+        googleId: user.googleId,
+        createdAt: user.createdAt,
+      })
+    : publicUserJson({
+        _id: userDoc._id,
+        username: userDoc.username,
+        email: userDoc.email,
+        profileImage: userDoc.profileImage,
+        googleId: userDoc.googleId,
+        createdAt: userDoc.createdAt,
+      });
+
   res.status(200).json({
-    user: user ? user : sanitizeUser(userDoc.toObject()),
-    accessToken,
-    refreshToken,
-    expiresIn,
+    user: userPayload,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: tokens.expiresIn,
   });
 }
 
@@ -303,12 +354,13 @@ export async function googleOAuthCallback(req: Request, res: Response): Promise<
     return;
   }
 
-  const { accessToken, refreshToken, expiresIn } = await issueTokensForUser(res, passportUser);
+  const tokens = await issueTokensForUser(res, passportUser);
+  if (!tokens) return;
 
   const redirectTo = new URL('/oauth-success', clientUrl);
-  redirectTo.searchParams.set('accessToken', accessToken);
-  redirectTo.searchParams.set('refreshToken', refreshToken);
-  redirectTo.searchParams.set('expiresIn', String(expiresIn));
+  redirectTo.searchParams.set('accessToken', tokens.accessToken);
+  redirectTo.searchParams.set('refreshToken', tokens.refreshToken);
+  redirectTo.searchParams.set('expiresIn', String(tokens.expiresIn));
 
   res.redirect(redirectTo.toString());
 }
