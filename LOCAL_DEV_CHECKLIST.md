@@ -19,7 +19,7 @@ You should see `{ ok: 1 }` or a successful ping.
 
 **If it fails:** Start MongoDB (e.g. `brew services start mongodb-community`).
 
----
+--- 
 
 ## 1b) Optional: demo posts & comments (empty database)
 
@@ -45,6 +45,19 @@ At minimum for local dev:
 - `GEMINI_API_KEY` — only if you want **Smart Search** (`/api/ai/search`)
 
 **If `GEMINI_API_KEY` is missing:** AI search will fail; **regular search** (`/api/search`) still works).
+
+---
+
+## 2b) Google sign-in (optional)
+
+For **Continue with Google** on login/register:
+
+- **`GOOGLE_CLIENT_ID`** / **`GOOGLE_CLIENT_SECRET`** — from [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → OAuth 2.0 Client (Web).
+- **`GOOGLE_CALLBACK_URL`** — must exactly match an **Authorized redirect URI** in that client, e.g.  
+  `http://localhost:3000/api/auth/google/callback` (API port, path includes `/api` if your app mounts auth there).
+- **`CLIENT_URL`** — where the React app is served, e.g. `http://localhost:5173`. After Google auth, the API redirects to `{CLIENT_URL}/oauth-success?accessToken=...&refreshToken=...`. Add `http://localhost:5173` (or your dev origin) under **Authorized JavaScript origins** in Google Console if required.
+
+Client dev uses Vite proxy: the browser opens `{origin}/api/auth/google` (e.g. `http://localhost:5173/api/auth/google`), which proxies to the API.
 
 ---
 

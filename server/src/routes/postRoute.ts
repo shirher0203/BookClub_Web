@@ -49,7 +49,8 @@ router.get('/', getFeed);
  *         name: limit
  *         schema: { type: integer, default: 20 }
  *     responses:
- *       200: { description: Array of posts for user with total count }
+ *       200: { description: Array of posts for user with total count (newest first) }
+ *       400: { description: Invalid user id }
  */
 router.get('/user/:id', getUserPosts);
 

@@ -1,6 +1,7 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { SearchDropdown } from './SearchDropdown';
-import { getUserIdFromAccessToken } from '../utils/jwt';
+import { useAuth } from '../context/AuthContext';
+import { assetUrl } from '../utils/assetUrl';
 import styles from './Navbar.module.css';
 
 function BookLogo({ className }: { className?: string }): JSX.Element {
@@ -34,25 +35,27 @@ function BookLogo({ className }: { className?: string }): JSX.Element {
   );
 }
 
-function ProfilePlaceholderIcon({ className }: { className?: string }): JSX.Element {
+function ProfileAvatar({ src, label }: { src?: string; label: string }): JSX.Element {
+  const letter = label.slice(0, 1).toUpperCase();
+  if (src) {
+    return <img src={src} alt="" className={styles.avatarImg} width={36} height={36} />;
+  }
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      width={22}
-      height={22}
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-    </svg>
+    <span className={styles.avatarLetter} aria-hidden>
+      {letter}
+    </span>
   );
 }
 
 export function Navbar(): JSX.Element {
-  const userId = getUserIdFromAccessToken();
-  const profileTo = userId ? `/profile/${userId}` : '/profile/me';
+  const { isReady, isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+  const profileImg = assetUrl(user?.profileImage);
+
+  async function handleLogout(): Promise<void> {
+    await logout();
+    navigate('/login', { replace: true });
+  }
 
   return (
     <header className={styles.bar}>
@@ -73,30 +76,57 @@ export function Navbar(): JSX.Element {
         >
           Feed
         </NavLink>
-        <NavLink
-          to="/posts/new"
-          className={({ isActive }) =>
-            isActive ? `${styles.navBtn} ${styles.navBtnActive}` : styles.navBtn
-          }
-        >
-          New review
-        </NavLink>
+        {isAuthenticated && (
+          <NavLink
+            to="/posts/new"
+            className={({ isActive }) =>
+              isActive ? `${styles.navBtn} ${styles.navBtnActive}` : styles.navBtn
+            }
+          >
+            New review
+          </NavLink>
+        )}
+        {isAuthenticated && (
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              isActive ? `${styles.navBtn} ${styles.navBtnActive}` : styles.navBtn
+            }
+          >
+            Profile
+          </NavLink>
+        )}
       </nav>
 
       <div className={styles.searchWrap}>
         <SearchDropdown />
       </div>
 
-      <Link
-        to={profileTo}
-        className={styles.profileBtn}
-        title="Profile (coming soon)"
-        aria-label="Your profile (coming soon)"
-      >
-        <span className={styles.profileRing}>
-          <ProfilePlaceholderIcon className={styles.profileIcon} />
-        </span>
-      </Link>
+      <div className={styles.auth}>
+        {!isReady ? (
+          <span className={styles.authMuted}>…</span>
+        ) : isAuthenticated ? (
+          <>
+            <Link to="/profile" className={styles.profileBtn} title="Your profile" aria-label="Your profile">
+              <span className={styles.profileRing}>
+                <ProfileAvatar src={profileImg} label={user?.username ?? 'You'} />
+              </span>
+            </Link>
+            <button type="button" className={styles.logoutBtn} onClick={() => void handleLogout()}>
+              Log out
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className={styles.authLink}>
+              Log in
+            </Link>
+            <Link to="/register" className={styles.authRegister}>
+              Register
+            </Link>
+          </>
+        )}
+      </div>
     </header>
   );
 }

@@ -5,7 +5,14 @@ import multer from 'multer';
 import mongoose from 'mongoose';
 import { User as UserModel } from '../models/userModel';
 
-const uploadsDir = path.join(__dirname, '../../public/uploads/profiles');
+/** Authenticated requests (JWT / Passport). Local type so ts-node resolves `req.user.id` reliably. */
+export interface AuthRequest extends Request {
+  user?: { id: string; username?: string; email?: string };
+}
+
+/** Package root whether running from `src/` or `dist/src/` (compiled). */
+const serverRoot = path.resolve(__dirname, __dirname.includes(`${path.sep}dist${path.sep}`) ? '../../..' : '../..');
+const uploadsDir = path.join(serverRoot, 'public/uploads/profiles');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -14,7 +21,7 @@ if (!fs.existsSync(uploadsDir)) {
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
-    const userId = req.user?.id ?? 'anon';
+    const userId = (req as AuthRequest).user?.id ?? 'anon';
     const ext = path.extname(file.originalname) || '.jpg';
     cb(null, `${userId}-${Date.now()}${ext}`);
   },
@@ -25,27 +32,42 @@ export const profileImageUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-function getAuthenticatedUserId(req: Request): string | undefined {
+function getAuthenticatedUserId(req: AuthRequest): string | undefined {
   return req.user?.id;
 }
 
 export async function getProfile(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+  if (!id || !mongoose.isValidObjectId(id)) {
     res.status(404).json({ message: 'User not found.' });
     return;
   }
 
-  const user = await UserModel.findById(id).select('-password').lean();
-  if (!user) {
-    res.status(404).json({ message: 'User not found.' });
-    return;
-  }
+  try {
+    const user = await UserModel.findById(id).select('-password').lean();
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
 
-  res.status(200).json(user);
+    res.status(200).json({
+      _id: String(user._id),
+      username: user.username,
+      email: user.email,
+      profileImage: user.profileImage ?? '',
+      ...(user.googleId != null && user.googleId !== '' ? { googleId: user.googleId } : {}),
+      createdAt: user.createdAt,
+    });
+  } catch (err) {
+    if (err instanceof mongoose.Error.CastError) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+    throw err;
+  }
 }
 
-export async function updateProfile(req: Request, res: Response): Promise<void> {
+export async function updateProfile(req: AuthRequest, res: Response): Promise<void> {
   const authId = getAuthenticatedUserId(req);
   if (!authId) {
     res.status(401).json({ message: 'Unauthorized' });

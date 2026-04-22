@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
+import mongoose from 'mongoose';
 import { Post } from '../models/postModel';
 import { Comment } from '../models/commentModel';
 
@@ -85,6 +86,10 @@ export async function getFeed(req: Request, res: Response): Promise<void> {
 
 export async function getUserPosts(req: Request, res: Response): Promise<void> {
   const { id: userId } = req.params;
+  if (!userId || !mongoose.isValidObjectId(userId)) {
+    res.status(400).json({ message: 'Invalid user id.' });
+    return;
+  }
   const skip = Math.max(0, Number(req.query.skip) || 0);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
   const posts = await Post.find({ userId })
