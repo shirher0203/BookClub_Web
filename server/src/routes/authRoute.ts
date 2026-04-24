@@ -3,7 +3,7 @@ import { Router } from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy, type Profile } from 'passport-google-oauth20';
 import { googleOAuthCallback, login, logout, refreshToken, register } from '../controllers/authController';
-import { profileImageUpload } from '../controllers/userController';
+import { uploadProfileImage } from '../controllers/userController';
 import type { HydratedDocument } from 'mongoose';
 import { User, type IUser } from '../models/userModel';
 
@@ -159,7 +159,7 @@ function ensureGoogleConfigured(): void {
  *       201: { description: User created (password excluded) }
  *       400: { description: Validation error or duplicate username/email }
  */
-router.post('/register', profileImageUpload.single('profileImage'), register);
+router.post('/register', uploadProfileImage, register);
 
 /**
  * @openapi

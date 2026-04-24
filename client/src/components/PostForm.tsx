@@ -58,7 +58,13 @@ export function PostForm({
     try {
       await onSubmit(values);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      const serverMessage =
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      if (typeof serverMessage === 'string' && serverMessage.trim().length > 0) {
+        setError(serverMessage);
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong.');
+      }
     } finally {
       setSubmitting(false);
     }

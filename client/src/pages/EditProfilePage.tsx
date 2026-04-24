@@ -54,8 +54,14 @@ export function EditProfilePage(): JSX.Element {
       localStorage.setItem('authUser', JSON.stringify(next));
       setFile(null);
       setRemoveImage(false);
-    } catch {
-      setError('Could not update profile. Check username and email are unique.');
+    } catch (err) {
+      const serverMessage =
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      setError(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not update profile. Check username and email are unique.'
+      );
     } finally {
       setSubmitting(false);
     }

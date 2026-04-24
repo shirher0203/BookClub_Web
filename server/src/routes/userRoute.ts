@@ -4,7 +4,7 @@ import authMiddleware from '../middleware/authMiddleware';
 import {
   type AuthRequest,
   getProfile,
-  profileImageUpload,
+  uploadProfileImage,
   updateProfile,
 } from '../controllers/userController';
 
@@ -34,7 +34,7 @@ const router = Router();
  *       401: { description: Unauthorized }
  *       404: { description: User not found }
  */
-router.put('/profile', authMiddleware, profileImageUpload.single('profileImage'), (req, res) =>
+router.put('/profile', authMiddleware, uploadProfileImage, (req, res) =>
   updateProfile(req as AuthRequest, res)
 );
 

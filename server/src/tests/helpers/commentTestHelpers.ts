@@ -11,7 +11,7 @@ import {
   getPostById,
   updatePost,
   deletePost,
-  upload,
+  uploadImage,
 } from '../../controllers/postController';
 import {
   createComment,
@@ -50,11 +50,11 @@ export async function initCommentTestEnv(): Promise<void> {
   app = express();
   app.use(express.json());
   app.use(stubAuth);
-  app.post('/posts', upload.single('image'), createPost);
+  app.post('/posts', uploadImage, createPost);
   app.get('/posts', getFeed);
   app.get('/posts/user/:id', getUserPosts);
   app.get('/posts/:id', getPostById);
-  app.put('/posts/:id', upload.single('image'), updatePost);
+  app.put('/posts/:id', uploadImage, updatePost);
   app.delete('/posts/:id', deletePost);
   app.post('/comments', createComment);
   app.get('/comments', getCommentsByPostId);

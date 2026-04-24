@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, RequestHandler } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -27,10 +27,32 @@ const storage = multer.diskStorage({
   },
 });
 
-export const profileImageUpload = multer({
+const ALLOWED_IMAGE_MIMETYPES = /^image\/(jpeg|jpg|png|gif|webp)$/i;
+
+const profileImageUpload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_IMAGE_MIMETYPES.test(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Only image files are allowed (jpeg, png, gif, webp).'));
+  },
 });
+
+/** Wraps multer's single() so upload errors are returned as JSON 400 instead of a generic 500. */
+export const uploadProfileImage: RequestHandler = (req, res, next) => {
+  profileImageUpload.single('profileImage')(req, res, (err: unknown) => {
+    if (err) {
+      const message =
+        err instanceof Error ? err.message : 'Invalid file upload.';
+      res.status(400).json({ message });
+      return;
+    }
+    next();
+  });
+};
 
 function getAuthenticatedUserId(req: AuthRequest): string | undefined {
   return req.user?.id;
