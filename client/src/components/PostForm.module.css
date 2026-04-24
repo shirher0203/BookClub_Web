@@ -37,6 +37,34 @@
   font-size: 0.9rem;
 }
 
+.coverPreview {
+  display: block;
+  max-width: 220px;
+  max-height: 220px;
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid #e0d4b8;
+  margin: 0.35rem 0;
+}
+
+.note {
+  margin: 0.35rem 0;
+  font-size: 0.85rem;
+  color: #6b5a3a;
+}
+
+.removeBtn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #8a2f1f;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .fieldset {
   border: 1px solid #d4a853;
   border-radius: 8px;

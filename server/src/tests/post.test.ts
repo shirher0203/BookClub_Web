@@ -236,6 +236,50 @@ describe('Posts CRUD', () => {
       if (fs.existsSync(newAbs)) await fs.promises.unlink(newAbs).catch(() => undefined);
     });
 
+    it('clears post.image and unlinks the file when removeImage=true is sent', async () => {
+      const user = await User.create(USERS.AUTHOR);
+      const fileName = `remove-flag-${Date.now()}.jpg`;
+      const abs = seedFile(fileName);
+      const post = await Post.create({
+        ...POSTS.DEFAULT,
+        userId: user._id,
+        image: `/uploads/posts/${fileName}`,
+      });
+
+      const res = await request(app)
+        .put(`/posts/${post._id}`)
+        .set('x-test-user-id', user._id.toString())
+        .field('bookName', POSTS.DEFAULT.bookName)
+        .field('removeImage', 'true');
+
+      expect(res.status).toBe(200);
+      expect(res.body.image ?? null).toBeNull();
+      await waitForUnlink(abs);
+      expect(fs.existsSync(abs)).toBe(false);
+    });
+
+    it('leaves post.image unchanged when neither a file nor removeImage is sent', async () => {
+      const user = await User.create(USERS.AUTHOR);
+      const fileName = `keep-${Date.now()}.jpg`;
+      const abs = seedFile(fileName);
+      const post = await Post.create({
+        ...POSTS.DEFAULT,
+        userId: user._id,
+        image: `/uploads/posts/${fileName}`,
+      });
+
+      const res = await request(app)
+        .put(`/posts/${post._id}`)
+        .set('x-test-user-id', user._id.toString())
+        .field('bookName', 'Renamed');
+
+      expect(res.status).toBe(200);
+      expect(res.body.image).toBe(`/uploads/posts/${fileName}`);
+      expect(fs.existsSync(abs)).toBe(true);
+
+      await fs.promises.unlink(abs).catch(() => undefined);
+    });
+
     it('removes the image file from disk when the post is deleted', async () => {
       const user = await User.create(USERS.AUTHOR);
       const fileName = `orphan-delete-${Date.now()}.jpg`;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/axios';
 import { PostForm, type PostFormValues } from '../components/PostForm';
+import { assetUrl } from '../utils/assetUrl';
 import { normalizePost } from '../utils/normalizePost';
 import styles from './EditPostPage.module.css';
 
@@ -9,6 +10,7 @@ export function EditPostPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [initial, setInitial] = useState<Partial<PostFormValues> | null>(null);
+  const [initialImageUrl, setInitialImageUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export function EditPostPage(): JSX.Element {
           score: p.score ?? '',
           text: p.text,
         });
+        setInitialImageUrl(assetUrl(p.image) ?? null);
       } catch {
         setLoadError('Could not load this post.');
       }
@@ -46,7 +49,11 @@ export function EditPostPage(): JSX.Element {
     if (values.score !== '') fd.append('score', String(values.score));
     else fd.append('score', '');
     fd.append('text', values.text.trim());
-    if (values.image) fd.append('image', values.image);
+    if (values.image) {
+      fd.append('image', values.image);
+    } else if (values.removeImage) {
+      fd.append('removeImage', 'true');
+    }
 
     await api.put(`/posts/${id}`, fd);
     navigate('/feed', { replace: true });
@@ -83,6 +90,7 @@ export function EditPostPage(): JSX.Element {
       <h1 className={styles.title}>Edit review</h1>
       <PostForm
         initial={initial}
+        initialImageUrl={initialImageUrl}
         submitLabel="Save changes"
         onSubmit={handleSubmit}
       />

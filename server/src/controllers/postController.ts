@@ -171,9 +171,17 @@ export async function updatePost(req: Request, res: Response): Promise<void> {
   if (score !== undefined) post.score = score == null ? undefined : Number(score);
   if (text !== undefined) post.text = String(text).trim();
   const file = req.file as Express.Multer.File | undefined;
+  const rawRemove = (req.body as { removeImage?: unknown }).removeImage;
+  const wantsRemove =
+    rawRemove === true || rawRemove === 'true' || rawRemove === '1';
+
   if (file) {
     const previousImage = post.image;
     post.image = `/uploads/posts/${file.filename}`;
+    unlinkPostImage(previousImage);
+  } else if (wantsRemove) {
+    const previousImage = post.image;
+    post.image = undefined;
     unlinkPostImage(previousImage);
   }
   await post.save();
