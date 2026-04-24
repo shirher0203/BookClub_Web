@@ -41,6 +41,37 @@ function cacheKey(postId: string | undefined, text: string): string {
   return `text:${text.slice(0, 200)}`;
 }
 
+/** Remove expired entries from both Maps so long-running servers don't leak memory. */
+export function sweepExpiredEntries(now: number = Date.now()): void {
+  for (const [ip, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(ip);
+  }
+  for (const [key, entry] of analyzeCache) {
+    if (now >= entry.expiresAt) analyzeCache.delete(key);
+  }
+}
+
+/** Test helper — seed entries and report sizes so unit tests can verify the sweeper. */
+export const _testInternals = {
+  seedRateLimit(ip: string, entry: { count: number; resetAt: number }): void {
+    rateLimitMap.set(ip, entry);
+  },
+  seedAnalyze(key: string, entry: { data: geminiService.ReviewAnalysis; expiresAt: number }): void {
+    analyzeCache.set(key, entry);
+  },
+  sizes(): { rateLimit: number; analyze: number } {
+    return { rateLimit: rateLimitMap.size, analyze: analyzeCache.size };
+  },
+  clearAll(): void {
+    rateLimitMap.clear();
+    analyzeCache.clear();
+  },
+};
+
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+const sweepTimer = setInterval(() => sweepExpiredEntries(), SWEEP_INTERVAL_MS);
+sweepTimer.unref();
+
 export async function search(req: Request, res: Response): Promise<void> {
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) {
