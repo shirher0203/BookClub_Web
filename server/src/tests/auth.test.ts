@@ -1,7 +1,9 @@
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import express from 'express';
+import express, { Request, Response } from 'express';
+import jwt, { type Secret } from 'jsonwebtoken';
+import authMiddleware from '../middleware/authMiddleware';
 import authRoute from '../routes/authRoute';
 import { User } from '../models/userModel';
 import { RefreshToken } from '../models/tokenModel';
@@ -242,6 +244,46 @@ describe('Auth (register/login)', () => {
 
       const inDb = await RefreshToken.findOne({ token: refreshTok });
       expect(inDb).toBeNull();
+    });
+  });
+
+  describe('authMiddleware', () => {
+    let guardedApp: express.Express;
+
+    beforeAll(() => {
+      guardedApp = express();
+      guardedApp.use(express.json());
+      guardedApp.get('/guarded', authMiddleware, (req: Request, res: Response) => {
+        res.json({ id: (req as Request & { user?: { id: string } }).user?.id });
+      });
+    });
+
+    it('returns 401 when the Authorization header is missing', async () => {
+      const res = await request(guardedApp).get('/guarded');
+      expect(res.status).toBe(401);
+      expect(res.body.message).toMatch(/unauthorized/i);
+    });
+
+    it('returns 401 for a malformed scheme, a bad signature, and a token referencing a deleted user', async () => {
+      const malformed = await request(guardedApp)
+        .get('/guarded')
+        .set('Authorization', 'Basic abc.def.ghi');
+      expect(malformed.status).toBe(401);
+
+      const badSig = await request(guardedApp)
+        .get('/guarded')
+        .set('Authorization', 'Bearer abc.def.ghi');
+      expect(badSig.status).toBe(401);
+
+      const orphanId = new mongoose.Types.ObjectId().toString();
+      const orphanToken = jwt.sign({ userId: orphanId }, process.env.JWT_SECRET as Secret, {
+        expiresIn: '5m',
+      });
+      const orphan = await request(guardedApp)
+        .get('/guarded')
+        .set('Authorization', `Bearer ${orphanToken}`);
+      expect(orphan.status).toBe(401);
+      expect(orphan.body.message).toMatch(/no longer exists/i);
     });
   });
 });

@@ -93,6 +93,14 @@ describe('Users (profile)', () => {
       expect(fromDb?.email).toBe('new@test.com');
     });
 
+    it('should return 401 when no access token is provided', async () => {
+      const res = await request(app)
+        .put('/api/users/profile')
+        .send({ username: 'no_token' });
+      expect(res.status).toBe(401);
+      expect(res.body.message).toMatch(/unauthorized/i);
+    });
+
     it('should return 400 when updating to a username taken by another user', async () => {
       await User.create({
         username: 'taken_name',
