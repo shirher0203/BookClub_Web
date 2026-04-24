@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { SearchResultsPage } from './pages/SearchResultsPage';
@@ -13,10 +13,15 @@ import { ProfilePage } from './pages/ProfilePage';
 import { EditProfilePage } from './pages/EditProfilePage';
 import './App.css';
 
+const AUTH_ROUTES = ['/login', '/register'];
+
 function App(): JSX.Element {
+  const { pathname } = useLocation();
+  const hideNavbar = AUTH_ROUTES.includes(pathname);
+
   return (
     <>
-      <Navbar />
+      {!hideNavbar && <Navbar />}
       <main className="appMain">
         <Routes>
           <Route path="/" element={<Navigate to="/feed" replace />} />

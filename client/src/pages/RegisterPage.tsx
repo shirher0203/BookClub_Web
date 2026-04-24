@@ -1,8 +1,10 @@
-import { FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GoogleAuthSection } from '../components/GoogleAuthSection';
 import { useAuth } from '../context/AuthContext';
 import styles from './RegisterPage.module.css';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export function RegisterPage(): JSX.Element {
   const { register } = useAuth();
@@ -10,15 +12,47 @@ export function RegisterPage(): JSX.Element {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!profileImage) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(profileImage);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [profileImage]);
+
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setProfileImage(null);
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setError('Profile picture must be an image.');
+      setProfileImage(null);
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError('Profile picture must be 5 MB or smaller.');
+      setProfileImage(null);
+      return;
+    }
+    setError(null);
+    setProfileImage(file);
+  }
 
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await register(username.trim(), email.trim(), password);
+      await register(username.trim(), email.trim(), password, profileImage);
       navigate('/feed', { replace: true });
     } catch (err: unknown) {
       const data =
@@ -92,6 +126,42 @@ export function RegisterPage(): JSX.Element {
               required
               minLength={6}
             />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="reg-avatar">
+              Profile picture <span className={styles.optional}>(optional)</span>
+            </label>
+            <div className={styles.avatarRow}>
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt="Profile preview"
+                  className={styles.avatarPreview}
+                  width={56}
+                  height={56}
+                />
+              ) : (
+                <div className={styles.avatarPlaceholder} aria-hidden>
+                  {username.trim().slice(0, 1).toUpperCase() || '?'}
+                </div>
+              )}
+              <input
+                id="reg-avatar"
+                className={styles.fileInput}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
+              {profileImage && (
+                <button
+                  type="button"
+                  className={styles.clearBtn}
+                  onClick={() => setProfileImage(null)}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
           {error && (
             <p className={styles.error} role="alert">

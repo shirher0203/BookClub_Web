@@ -1,18 +1,23 @@
 import { FormEvent, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { GoogleAuthSection } from '../components/GoogleAuthSection';
 import { useAuth } from '../context/AuthContext';
 import styles from './LoginPage.module.css';
+
+const OAUTH_ERROR_MESSAGE =
+  'Google sign-in could not be completed. Please try again or use email and password.';
 
 export function LoginPage(): JSX.Element {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/feed';
+  const oauthError = searchParams.get('error') === 'oauth_failed';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(oauthError ? OAUTH_ERROR_MESSAGE : null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent): Promise<void> {

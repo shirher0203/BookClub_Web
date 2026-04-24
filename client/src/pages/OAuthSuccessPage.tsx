@@ -6,19 +6,31 @@ import styles from './OAuthSuccessPage.module.css';
 export function OAuthSuccessPage(): JSX.Element {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { commitOAuthSession } = useAuth();
+  const { commitOAuthSession, logout } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const accessToken = params.get('accessToken')?.trim() ?? '';
     const refreshToken = params.get('refreshToken')?.trim() ?? '';
 
+    let cancelled = false;
+
     if (!accessToken || !refreshToken) {
-      setError('Missing tokens from sign-in. Please try again.');
-      return;
+      void (async () => {
+        try {
+          await logout();
+        } catch {
+          /* ignore */
+        }
+        if (!cancelled) {
+          navigate('/login?error=oauth_failed', { replace: true });
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
     void (async () => {
       try {
         await commitOAuthSession(accessToken, refreshToken);
@@ -31,7 +43,7 @@ export function OAuthSuccessPage(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [params, commitOAuthSession, navigate]);
+  }, [params, commitOAuthSession, logout, navigate]);
 
   if (error) {
     return (

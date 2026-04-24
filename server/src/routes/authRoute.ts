@@ -3,6 +3,7 @@ import { Router } from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy, type Profile } from 'passport-google-oauth20';
 import { googleOAuthCallback, login, logout, refreshToken, register } from '../controllers/authController';
+import { profileImageUpload } from '../controllers/userController';
 import type { HydratedDocument } from 'mongoose';
 import { User, type IUser } from '../models/userModel';
 
@@ -20,17 +21,29 @@ router.use(passport.initialize());
 
 let googleConfigured = false;
 
-function safeUsernameFromProfile(profile: Profile, email: string): string {
-  const base =
-    (typeof profile.displayName === 'string' && profile.displayName.trim().length > 0
-      ? profile.displayName
-      : email.split('@')[0]) ?? 'member';
-  return base
+function sanitizeUsername(raw: string): string {
+  return raw
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/[^\p{L}\p{N}_]+/gu, '')
     .replace(/^_+|_+$/g, '')
-    .slice(0, 30) || 'member';
+    .slice(0, 30);
+}
+
+function safeUsernameFromProfile(profile: Profile, email: string): string {
+  const candidates: string[] = [];
+  if (typeof profile.displayName === 'string' && profile.displayName.trim().length > 0) {
+    candidates.push(profile.displayName);
+  }
+  const emailLocal = email.split('@')[0] ?? '';
+  if (emailLocal) candidates.push(emailLocal);
+
+  for (const c of candidates) {
+    const cleaned = sanitizeUsername(c);
+    if (cleaned.length > 0) return cleaned;
+  }
+  return 'member';
 }
 
 async function uniqueUsername(base: string): Promise<string> {
@@ -68,8 +81,16 @@ function ensureGoogleConfigured(): void {
             return;
           }
 
+          const rawPhoto = profile.photos?.[0]?.value?.trim() ?? '';
+          const googlePhoto =
+            rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://') ? rawPhoto : '';
+
           const byGoogle = await User.findOne({ googleId });
           if (byGoogle) {
+            if (googlePhoto && !byGoogle.profileImage) {
+              byGoogle.profileImage = googlePhoto;
+              await byGoogle.save();
+            }
             done(null, toPassportUser(byGoogle));
             return;
           }
@@ -77,6 +98,9 @@ function ensureGoogleConfigured(): void {
           const byEmail = await User.findOne({ email });
           if (byEmail) {
             byEmail.googleId = googleId;
+            if (googlePhoto && !byEmail.profileImage) {
+              byEmail.profileImage = googlePhoto;
+            }
             await byEmail.save();
             done(null, toPassportUser(byEmail));
             return;
@@ -88,7 +112,7 @@ function ensureGoogleConfigured(): void {
             username,
             email,
             googleId,
-            profileImage: '',
+            profileImage: googlePhoto,
           });
           done(null, toPassportUser(created));
         } catch (e) {
@@ -122,11 +146,20 @@ function ensureGoogleConfigured(): void {
  *               username: { type: string }
  *               email: { type: string }
  *               password: { type: string }
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [username, email, password]
+ *             properties:
+ *               username: { type: string }
+ *               email: { type: string }
+ *               password: { type: string }
+ *               profileImage: { type: string, format: binary }
  *     responses:
  *       201: { description: User created (password excluded) }
  *       400: { description: Validation error or duplicate username/email }
  */
-router.post('/register', register);
+router.post('/register', profileImageUpload.single('profileImage'), register);
 
 /**
  * @openapi

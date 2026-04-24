@@ -6,38 +6,71 @@ function regexFor(keyword: string): RegExp {
 }
 
 function buildFilter(parsed: ParsedQuery): Record<string, unknown> {
-  const conditions: Record<string, unknown>[] = [];
+  const contentConditions: Record<string, unknown>[] = [];
+  const hardFilters: Record<string, unknown>[] = [];
 
   if (parsed.titleKeywords && parsed.titleKeywords.length > 0) {
-    conditions.push({
-      $or: parsed.titleKeywords.map((k) => ({ bookName: regexFor(k) })),
-    });
-  }
-  if (parsed.authorKeywords && parsed.authorKeywords.length > 0) {
-    conditions.push({
-      $or: parsed.authorKeywords.map((k) => ({ bookAuthor: regexFor(k) })),
-    });
-  }
-  if (parsed.genres && parsed.genres.length > 0) {
-    conditions.push({
-      $or: parsed.genres.map((g) => ({ genre: regexFor(g) })),
-    });
-  }
-  if (parsed.minScore != null && parsed.minScore >= 1 && parsed.minScore <= 5) {
-    conditions.push({ score: { $gte: parsed.minScore } });
-  }
-  if (parsed.yearRange) {
-    const { start, end } = parsed.yearRange;
-    const dateCond: { $gte?: Date; $lte?: Date } = {};
-    if (start != null) dateCond.$gte = new Date(start, 0, 1);
-    if (end != null) dateCond.$lte = new Date(end, 11, 31, 23, 59, 59);
-    if (Object.keys(dateCond).length > 0) {
-      conditions.push({ createdAt: dateCond });
+    for (const k of parsed.titleKeywords) {
+      contentConditions.push({ bookName: regexFor(k) });
     }
   }
+  if (parsed.authorKeywords && parsed.authorKeywords.length > 0) {
+    for (const k of parsed.authorKeywords) {
+      contentConditions.push({ bookAuthor: regexFor(k) });
+    }
+  }
+  if (parsed.inferredBooks && parsed.inferredBooks.length > 0) {
+    for (const b of parsed.inferredBooks) {
+      contentConditions.push({ bookName: regexFor(b) });
+    }
+  }
+  if (parsed.genres && parsed.genres.length > 0) {
+    for (const g of parsed.genres) {
+      contentConditions.push({ genre: regexFor(g) });
+    }
+  }
+  if (parsed.minScore != null && parsed.minScore >= 1 && parsed.minScore <= 5) {
+    hardFilters.push({ score: { $gte: parsed.minScore } });
+  }
 
-  if (conditions.length === 0) return {};
-  return { $and: conditions };
+  const parts: Record<string, unknown>[] = [];
+  if (contentConditions.length > 0) {
+    parts.push({ $or: contentConditions });
+  }
+  parts.push(...hardFilters);
+
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return parts[0];
+  return { $and: parts };
+}
+
+function relevanceScore(post: { bookName?: string; bookAuthor?: string; genre?: string }, parsed: ParsedQuery): number {
+  let score = 0;
+  const name = (post.bookName ?? '').toLowerCase();
+  const author = (post.bookAuthor ?? '').toLowerCase();
+  const genre = (post.genre ?? '').toLowerCase();
+
+  if (parsed.inferredBooks) {
+    for (const b of parsed.inferredBooks) {
+      if (name.includes(b.toLowerCase())) { score += 30; break; }
+    }
+  }
+  if (parsed.titleKeywords) {
+    for (const k of parsed.titleKeywords) {
+      if (name.includes(k.toLowerCase())) score += 20;
+    }
+  }
+  if (parsed.authorKeywords) {
+    for (const k of parsed.authorKeywords) {
+      if (author.includes(k.toLowerCase())) score += 10;
+    }
+  }
+  if (parsed.genres) {
+    for (const g of parsed.genres) {
+      if (genre.includes(g.toLowerCase())) score += 5;
+    }
+  }
+  return score;
 }
 
 class SearchService {
@@ -47,6 +80,7 @@ class SearchService {
       Post.find(filter).sort({ createdAt: -1 }).limit(100).populate('userId', 'username profileImage _id').lean(),
       Post.countDocuments(filter),
     ]);
+    posts.sort((a, b) => relevanceScore(b, parsedQuery) - relevanceScore(a, parsedQuery));
     return { posts, total };
   }
 

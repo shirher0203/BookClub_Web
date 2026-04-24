@@ -2,6 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { SearchDropdown } from './SearchDropdown';
 import { useAuth } from '../context/AuthContext';
 import { assetUrl } from '../utils/assetUrl';
+import { useImageFallback } from '../utils/useImageFallback';
 import styles from './Navbar.module.css';
 
 function BookLogo({ className }: { className?: string }): JSX.Element {
@@ -37,8 +38,19 @@ function BookLogo({ className }: { className?: string }): JSX.Element {
 
 function ProfileAvatar({ src, label }: { src?: string; label: string }): JSX.Element {
   const letter = label.slice(0, 1).toUpperCase();
-  if (src) {
-    return <img src={src} alt="" className={styles.avatarImg} width={36} height={36} />;
+  const { show, onError } = useImageFallback(src);
+  if (show) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className={styles.avatarImg}
+        width={36}
+        height={36}
+        onError={onError}
+        referrerPolicy="no-referrer"
+      />
+    );
   }
   return (
     <span className={styles.avatarLetter} aria-hidden>

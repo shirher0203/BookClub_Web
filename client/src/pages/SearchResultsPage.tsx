@@ -11,7 +11,7 @@ interface ParsedQueryChip {
   titleKeywords?: string[];
   authorKeywords?: string[];
   genres?: string[];
-  yearRange?: { start?: number; end?: number };
+  inferredBooks?: string[];
   minScore?: number;
   originalQuery: string;
 }
@@ -28,31 +28,12 @@ interface SearchUser {
   profileImage: string;
 }
 
-interface SearchPost {
-  _id: string;
-  bookName: string;
-  bookAuthor?: string;
-}
-
 interface RegularAllResponse {
   users: SearchUser[];
-  posts: SearchPost[];
+  posts: unknown[];
 }
 
 type TabId = 'smart' | 'all';
-
-function searchHitToPost(p: SearchPost): Post {
-  return {
-    id: String(p._id),
-    userId: '',
-    bookName: p.bookName,
-    bookAuthor: p.bookAuthor,
-    text: '',
-    likesCount: 0,
-    commentsCount: 0,
-    createdAt: '',
-  };
-}
 
 export function SearchResultsPage(): JSX.Element {
   const [params] = useSearchParams();
@@ -179,14 +160,11 @@ export function SearchResultsPage(): JSX.Element {
                     author: {a}
                   </span>
                 ))}
-                {aiData.parsedQuery.yearRange &&
-                  (aiData.parsedQuery.yearRange.start != null ||
-                    aiData.parsedQuery.yearRange.end != null) && (
-                    <span className={styles.chip}>
-                      {aiData.parsedQuery.yearRange.start ?? '…'}–
-                      {aiData.parsedQuery.yearRange.end ?? '…'}
-                    </span>
-                  )}
+                {aiData.parsedQuery.inferredBooks?.map((b, i) => (
+                  <span key={`b-${i}-${b}`} className={styles.chip}>
+                    book: {b}
+                  </span>
+                ))}
               </div>
               <p className={styles.meta}>{aiData.total} result(s)</p>
               {aiPosts.length === 0 && <p>No matching posts.</p>}
@@ -195,7 +173,6 @@ export function SearchResultsPage(): JSX.Element {
                   key={p.id}
                   post={p}
                   currentUserId={currentUserId}
-                  compact
                 />
               ))}
             </>
@@ -221,14 +198,15 @@ export function SearchResultsPage(): JSX.Element {
               </ul>
               <h3 className={styles.subheading}>Posts</h3>
               {regData.posts.length === 0 && <p>No matching posts.</p>}
-              {regData.posts.map((p) => (
-                <PostCard
-                  key={p._id}
-                  post={searchHitToPost(p)}
-                  currentUserId={currentUserId}
-                  compact
-                />
-              ))}
+              {regData.posts
+                .map((p) => normalizePost(p as Record<string, unknown>))
+                .map((p) => (
+                  <PostCard
+                    key={p.id}
+                    post={p}
+                    currentUserId={currentUserId}
+                  />
+                ))}
             </>
           )}
         </section>

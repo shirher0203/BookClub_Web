@@ -161,10 +161,13 @@ export async function register(req: Request, res: Response): Promise<void> {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const uploadedFile = (req as Request & { file?: Express.Multer.File }).file;
+  const profileImage = uploadedFile ? `/uploads/profiles/${uploadedFile.filename}` : '';
   const created = await User.create({
     username: usernameTrim,
     email: emailTrim,
     password: passwordHash,
+    profileImage,
   });
 
   // Re-fetch without password to guarantee we never return it.

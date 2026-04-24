@@ -4,6 +4,7 @@ import { api } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { assetUrl } from '../utils/assetUrl';
 import { normalizeUserFromApi } from '../utils/authUser';
+import { useImageFallback } from '../utils/useImageFallback';
 import styles from './EditProfilePage.module.css';
 
 export function EditProfilePage(): JSX.Element {
@@ -12,6 +13,7 @@ export function EditProfilePage(): JSX.Element {
   const [email, setEmail] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,13 +42,18 @@ export function EditProfilePage(): JSX.Element {
       const fd = new FormData();
       fd.append('username', username.trim());
       fd.append('email', email.trim());
-      if (file) fd.append('profileImage', file);
+      if (file) {
+        fd.append('profileImage', file);
+      } else if (removeImage) {
+        fd.append('removeProfileImage', 'true');
+      }
 
       const res = await api.put<Record<string, unknown>>('/users/profile', fd);
       const next = normalizeUserFromApi(res.data);
       setUser(next);
       localStorage.setItem('authUser', JSON.stringify(next));
       setFile(null);
+      setRemoveImage(false);
     } catch {
       setError('Could not update profile. Check username and email are unique.');
     } finally {
@@ -55,6 +62,8 @@ export function EditProfilePage(): JSX.Element {
   }
 
   const currentImg = assetUrl(user?.profileImage);
+  const previewSrc = preview ?? currentImg ?? '';
+  const previewFallback = useImageFallback(previewSrc);
 
   return (
     <div className={styles.page}>
@@ -101,16 +110,43 @@ export function EditProfilePage(): JSX.Element {
             className={styles.fileInput}
             type="file"
             accept="image/*"
-            onChange={(ev) => setFile(ev.target.files?.[0] ?? null)}
+            onChange={(ev) => {
+              setFile(ev.target.files?.[0] ?? null);
+              setRemoveImage(false);
+            }}
           />
-          {(preview || currentImg) && (
-            <img
-              src={preview ?? currentImg ?? ''}
-              alt=""
-              className={styles.preview}
-              width={120}
-              height={120}
-            />
+          {removeImage ? (
+            <p className={styles.note}>Picture will be removed when you save.</p>
+          ) : (
+            previewFallback.show && (
+              <img
+                src={previewSrc}
+                alt=""
+                className={styles.preview}
+                width={120}
+                height={120}
+                onError={previewFallback.onError}
+                referrerPolicy="no-referrer"
+              />
+            )
+          )}
+          {currentImg && !file && !removeImage && (
+            <button
+              type="button"
+              className={styles.removeBtn}
+              onClick={() => setRemoveImage(true)}
+            >
+              Remove picture
+            </button>
+          )}
+          {removeImage && (
+            <button
+              type="button"
+              className={styles.removeBtn}
+              onClick={() => setRemoveImage(false)}
+            >
+              Keep current picture
+            </button>
           )}
         </div>
         {error && (

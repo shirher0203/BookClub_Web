@@ -2,9 +2,32 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/axios';
 import { assetUrl } from '../utils/assetUrl';
+import { useImageFallback } from '../utils/useImageFallback';
 import { normalizePost } from '../utils/normalizePost';
 import type { Post } from '../types';
 import styles from './PostCard.module.css';
+
+function AuthorAvatar({ src, name }: { src?: string; name: string }): JSX.Element {
+  const { show, onError } = useImageFallback(src);
+  if (show) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className={styles.avatar}
+        width={40}
+        height={40}
+        onError={onError}
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
+  return (
+    <div className={styles.avatarPlaceholder} aria-hidden>
+      {name.slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
 
 function StarRow({ score }: { score: number }): JSX.Element {
   return (
@@ -50,6 +73,7 @@ export function PostCard({
 
   const authorName = merged.user?.username ?? 'Member';
   const profileImg = assetUrl(merged.user?.profileImage);
+  const authorId = merged.user?.id ?? (merged.userId || null);
 
   const handleLike = useCallback(async () => {
     if (!currentUserId) return;
@@ -84,31 +108,41 @@ export function PostCard({
   return (
     <article className={compact ? styles.cardCompact : styles.card}>
       <header className={styles.header}>
-        <div className={styles.author}>
-          {profileImg ? (
-            <img
-              src={profileImg}
-              alt=""
-              className={styles.avatar}
-              width={40}
-              height={40}
-            />
-          ) : (
-            <div className={styles.avatarPlaceholder} aria-hidden>
-              {authorName.slice(0, 1).toUpperCase()}
+        {authorId ? (
+          <Link
+            to={`/profile/${authorId}`}
+            className={styles.authorLink}
+            aria-label={`View ${authorName}'s profile`}
+          >
+            <div className={styles.author}>
+              <AuthorAvatar src={profileImg} name={authorName} />
+              <div>
+                <p className={styles.authorName}>{authorName}</p>
+                {merged.createdAt && (
+                  <time className={styles.date} dateTime={merged.createdAt}>
+                    {new Date(merged.createdAt).toLocaleDateString(undefined, {
+                      dateStyle: 'medium',
+                    })}
+                  </time>
+                )}
+              </div>
             </div>
-          )}
-          <div>
-            <p className={styles.authorName}>{authorName}</p>
-            {merged.createdAt && (
-              <time className={styles.date} dateTime={merged.createdAt}>
-                {new Date(merged.createdAt).toLocaleDateString(undefined, {
-                  dateStyle: 'medium',
-                })}
-              </time>
-            )}
+          </Link>
+        ) : (
+          <div className={styles.author}>
+            <AuthorAvatar src={profileImg} name={authorName} />
+            <div>
+              <p className={styles.authorName}>{authorName}</p>
+              {merged.createdAt && (
+                <time className={styles.date} dateTime={merged.createdAt}>
+                  {new Date(merged.createdAt).toLocaleDateString(undefined, {
+                    dateStyle: 'medium',
+                  })}
+                </time>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         {currentUserId && merged.userId === currentUserId && (
           <Link to={`/posts/${merged.id}/edit`} className={styles.editLink}>
             Edit

@@ -118,8 +118,24 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
   }
 
   const file = req.file as Express.Multer.File | undefined;
+  const rawRemove = (req.body as { removeProfileImage?: unknown }).removeProfileImage;
+  const wantsRemove =
+    rawRemove === true || rawRemove === 'true' || rawRemove === '1';
+
   if (file) {
+    const previous = user.profileImage;
     user.profileImage = `/uploads/profiles/${file.filename}`;
+    if (previous && previous.startsWith('/uploads/profiles/')) {
+      const oldPath = path.join(serverRoot, 'public', previous);
+      fs.promises.unlink(oldPath).catch(() => undefined);
+    }
+  } else if (wantsRemove) {
+    const previous = user.profileImage;
+    user.profileImage = '';
+    if (previous && previous.startsWith('/uploads/profiles/')) {
+      const oldPath = path.join(serverRoot, 'public', previous);
+      fs.promises.unlink(oldPath).catch(() => undefined);
+    }
   }
 
   await user.save();
