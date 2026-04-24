@@ -128,7 +128,7 @@ export function EditProfilePage(): JSX.Element {
             previewFallback.show && (
               <img
                 src={previewSrc}
-                alt=""
+                alt={file ? 'Profile picture preview' : username || 'Profile picture'}
                 className={styles.preview}
                 width={120}
                 height={120}

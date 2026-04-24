@@ -13,7 +13,7 @@ function AuthorAvatar({ src, name }: { src?: string; name: string }): JSX.Elemen
     return (
       <img
         src={src}
-        alt=""
+        alt={name}
         className={styles.avatar}
         width={40}
         height={40}
@@ -168,7 +168,7 @@ export function PostCard({
       {imageSrc && (
         <img
           src={imageSrc}
-          alt=""
+          alt={merged.bookName ? `Cover of ${merged.bookName}` : 'Book cover'}
           className={styles.cover}
           loading="lazy"
         />

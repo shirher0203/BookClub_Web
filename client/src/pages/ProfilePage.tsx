@@ -163,7 +163,7 @@ export function ProfilePage(): JSX.Element {
           {avatarFallback.show ? (
             <img
               src={imgSrc}
-              alt=""
+              alt={profile.username}
               className={styles.avatar}
               width={88}
               height={88}

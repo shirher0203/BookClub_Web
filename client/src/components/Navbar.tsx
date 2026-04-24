@@ -43,7 +43,7 @@ function ProfileAvatar({ src, label }: { src?: string; label: string }): JSX.Ele
     return (
       <img
         src={src}
-        alt=""
+        alt={label}
         className={styles.avatarImg}
         width={36}
         height={36}

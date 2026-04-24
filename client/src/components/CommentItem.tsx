@@ -40,7 +40,7 @@ export function CommentItem({
         {avatarFallback.show ? (
           <img
             src={avatar}
-            alt=""
+            alt={name}
             className={styles.avatar}
             width={36}
             height={36}

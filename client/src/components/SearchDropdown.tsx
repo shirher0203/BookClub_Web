@@ -7,7 +7,7 @@ import styles from './SearchDropdown.module.css';
 function UserRowAvatar({ src, username }: { src: string; username: string }): JSX.Element {
   const { show, onError } = useImageFallback(src);
   if (show) {
-    return <img src={src} alt="" className={styles.avatarImg} onError={onError} referrerPolicy="no-referrer" />;
+    return <img src={src} alt={username} className={styles.avatarImg} onError={onError} referrerPolicy="no-referrer" />;
   }
   return <>{username[0]?.toUpperCase() ?? '?'}</>;
 }
