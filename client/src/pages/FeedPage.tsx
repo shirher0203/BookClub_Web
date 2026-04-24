@@ -27,7 +27,7 @@ export function FeedPage(): JSX.Element {
     []
   );
 
-  const { items, loading, loadMoreRef, hasMore, error } =
+  const { items, loading, loadMoreRef, hasMore, error, removeItem } =
     useInfiniteScroll<Post>(fetchPage, 20);
 
   const showSentinel = useMemo(
@@ -55,6 +55,7 @@ export function FeedPage(): JSX.Element {
           key={post.id}
           post={post}
           currentUserId={currentUserId}
+          onPostDeleted={(id) => removeItem((p) => p.id === id)}
         />
       ))}
 

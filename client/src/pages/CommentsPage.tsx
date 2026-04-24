@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/axios';
 import { CommentItem } from '../components/CommentItem';
 import { PostCard } from '../components/PostCard';
@@ -10,6 +10,7 @@ import styles from './CommentsPage.module.css';
 
 export function CommentsPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const currentUserId = getUserIdFromAccessToken();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -103,7 +104,11 @@ export function CommentsPage(): JSX.Element {
       <p className={styles.back}>
         <Link to="/feed">← Feed</Link>
       </p>
-      <PostCard post={post} currentUserId={currentUserId} />
+      <PostCard
+        post={post}
+        currentUserId={currentUserId}
+        onPostDeleted={() => navigate('/feed', { replace: true })}
+      />
 
       <section className={styles.section} aria-labelledby="comments-heading">
         <h2 id="comments-heading" className={styles.h2}>

@@ -31,7 +31,7 @@ function ProfilePostsSection({
     [userId]
   );
 
-  const { items, loading, loadMoreRef, hasMore, error } = useInfiniteScroll<Post>(fetchPage, 20);
+  const { items, loading, loadMoreRef, hasMore, error, removeItem } = useInfiniteScroll<Post>(fetchPage, 20);
 
   const showSentinel = useMemo(() => hasMore && items.length > 0, [hasMore, items.length]);
 
@@ -45,7 +45,12 @@ function ProfilePostsSection({
         <p className={styles.postsEmpty}>No posts yet.</p>
       )}
       {items.map((post) => (
-        <PostCard key={post.id} post={post} currentUserId={currentUserId} />
+        <PostCard
+          key={post.id}
+          post={post}
+          currentUserId={currentUserId}
+          onPostDeleted={(id) => removeItem((p) => p.id === id)}
+        />
       ))}
       {loading && items.length === 0 && <p className={styles.postsLoading}>Loading…</p>}
       {loading && items.length > 0 && (

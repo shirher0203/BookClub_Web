@@ -7,6 +7,7 @@ export interface UseInfiniteScrollResult<T> {
   loadMoreRef: React.RefObject<HTMLDivElement | null>;
   hasMore: boolean;
   error: string | null;
+  removeItem: (predicate: (item: T) => boolean) => void;
 }
 
 /**
@@ -73,5 +74,17 @@ export function useInfiniteScroll<T>(
     return () => obs.disconnect();
   }, [load, hasMore, items.length]);
 
-  return { items, total, loading, loadMoreRef, hasMore, error };
+  const removeItem = useCallback((predicate: (item: T) => boolean): void => {
+    setItems((prev) => {
+      const next = prev.filter((item) => !predicate(item));
+      const removed = prev.length - next.length;
+      if (removed > 0) {
+        skipRef.current = Math.max(0, skipRef.current - removed);
+        setTotal((t) => Math.max(0, t - removed));
+      }
+      return next;
+    });
+  }, []);
+
+  return { items, total, loading, loadMoreRef, hasMore, error, removeItem };
 }

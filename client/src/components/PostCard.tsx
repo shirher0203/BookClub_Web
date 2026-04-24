@@ -46,6 +46,7 @@ export interface PostCardProps {
   currentUserId?: string | null;
   compact?: boolean;
   onPostUpdated?: (post: Post) => void;
+  onPostDeleted?: (postId: string) => void;
 }
 
 export function PostCard({
@@ -53,6 +54,7 @@ export function PostCard({
   currentUserId,
   compact = false,
   onPostUpdated,
+  onPostDeleted,
 }: PostCardProps): JSX.Element {
   const [merged, setMerged] = useState(post);
   useEffect(() => setMerged(post), [post]);
@@ -67,6 +69,8 @@ export function PostCard({
 
   const [optimisticLiked, setOptimisticLiked] = useState<boolean | null>(null);
   const [optimisticCount, setOptimisticCount] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const displayLiked = optimisticLiked ?? liked;
   const displayCount = optimisticCount ?? merged.likesCount;
@@ -102,6 +106,25 @@ export function PostCard({
     merged.id,
     onPostUpdated,
   ]);
+
+  const handleDelete = useCallback(async () => {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete(`/posts/${merged.id}`);
+      onPostDeleted?.(merged.id);
+    } catch (err) {
+      const serverMessage =
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      setDeleteError(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not delete post.'
+      );
+      setDeleting(false);
+    }
+  }, [merged.id, onPostDeleted]);
 
   const imageSrc = assetUrl(merged.image);
 
@@ -144,11 +167,27 @@ export function PostCard({
           </div>
         )}
         {currentUserId && merged.userId === currentUserId && (
-          <Link to={`/posts/${merged.id}/edit`} className={styles.editLink}>
-            Edit
-          </Link>
+          <div className={styles.ownerActions}>
+            <Link to={`/posts/${merged.id}/edit`} className={styles.editLink}>
+              Edit
+            </Link>
+            <button
+              type="button"
+              className={styles.deleteBtn}
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
         )}
       </header>
+
+      {deleteError && (
+        <p className={styles.deleteError} role="alert">
+          {deleteError}
+        </p>
+      )}
 
       <h2 className={styles.bookTitle}>{merged.bookName}</h2>
       <div className={styles.meta}>

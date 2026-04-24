@@ -91,6 +91,30 @@ export function SearchResultsPage(): JSX.Element {
       normalizePost(r as Record<string, unknown>)
     ) ?? [];
 
+  function handlePostDeleted(postId: string): void {
+    setAiData((prev) =>
+      prev
+        ? {
+            ...prev,
+            results: prev.results.filter(
+              (r) => (r as { _id?: string; id?: string })._id !== postId && (r as { id?: string }).id !== postId
+            ),
+            total: Math.max(0, prev.total - 1),
+          }
+        : prev
+    );
+    setRegData((prev) =>
+      prev
+        ? {
+            ...prev,
+            posts: prev.posts.filter(
+              (r) => (r as { _id?: string; id?: string })._id !== postId && (r as { id?: string }).id !== postId
+            ),
+          }
+        : prev
+    );
+  }
+
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Search</h1>
@@ -173,6 +197,7 @@ export function SearchResultsPage(): JSX.Element {
                   key={p.id}
                   post={p}
                   currentUserId={currentUserId}
+                  onPostDeleted={handlePostDeleted}
                 />
               ))}
             </>
@@ -205,6 +230,7 @@ export function SearchResultsPage(): JSX.Element {
                     key={p.id}
                     post={p}
                     currentUserId={currentUserId}
+                    onPostDeleted={handlePostDeleted}
                   />
                 ))}
             </>
