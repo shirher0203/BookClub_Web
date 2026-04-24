@@ -7,7 +7,7 @@ export interface IPost extends Document {
   genre?: string;
   /** 1–5 star rating, optional */
   score?: number;
-  text: string;
+  text?: string;
   image?: string;
   likes: mongoose.Types.ObjectId[];
   likesCount: number;
@@ -48,7 +48,7 @@ const postSchema = new Schema<IPost>(
     },
     text: {
       type: String,
-      required: true,
+      required: false,
       maxlength: 5000,
     },
     image: {
