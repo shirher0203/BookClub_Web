@@ -6,7 +6,8 @@ import mongoose from 'mongoose';
 import { Post } from '../models/postModel';
 import { Comment } from '../models/commentModel';
 
-const uploadsDir = path.join(__dirname, '../../public/uploads/posts');
+const serverRoot = path.resolve(__dirname, __dirname.includes(`${path.sep}dist${path.sep}`) ? '../../..' : '../..');
+const uploadsDir = path.join(serverRoot, 'public/uploads/posts');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
