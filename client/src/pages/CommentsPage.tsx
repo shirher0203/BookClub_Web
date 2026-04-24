@@ -134,6 +134,7 @@ export function CommentsPage(): JSX.Element {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
+          maxLength={1000}
           placeholder={
             currentUserId ? 'Write something…' : 'Sign in to comment'
           }

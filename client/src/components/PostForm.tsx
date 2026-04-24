@@ -79,6 +79,7 @@ export function PostForm({
           value={values.bookName}
           onChange={(e) => set('bookName', e.target.value)}
           required
+          maxLength={200}
           autoComplete="off"
         />
       </label>
@@ -89,6 +90,7 @@ export function PostForm({
           className={styles.input}
           value={values.bookAuthor}
           onChange={(e) => set('bookAuthor', e.target.value)}
+          maxLength={200}
           autoComplete="off"
         />
       </label>
@@ -99,6 +101,7 @@ export function PostForm({
           className={styles.input}
           value={values.genre}
           onChange={(e) => set('genre', e.target.value)}
+          maxLength={60}
           autoComplete="off"
         />
       </label>
@@ -128,6 +131,7 @@ export function PostForm({
           className={styles.textarea}
           value={values.text}
           onChange={(e) => set('text', e.target.value)}
+          maxLength={5000}
           rows={6}
         />
       </label>

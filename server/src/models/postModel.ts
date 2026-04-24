@@ -26,16 +26,19 @@ const postSchema = new Schema<IPost>(
       type: String,
       required: true,
       trim: true,
+      maxlength: 200,
     },
     bookAuthor: {
       type: String,
       required: false,
       trim: true,
+      maxlength: 200,
     },
     genre: {
       type: String,
       required: false,
       trim: true,
+      maxlength: 60,
     },
     score: {
       type: Number,
@@ -46,6 +49,7 @@ const postSchema = new Schema<IPost>(
     text: {
       type: String,
       required: true,
+      maxlength: 5000,
     },
     image: {
       type: String,

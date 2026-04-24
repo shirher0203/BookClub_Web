@@ -22,6 +22,7 @@ const commentSchema = new Schema<IComment>(
     text: {
       type: String,
       required: true,
+      maxlength: 1000,
     },
     createdAt: {
       type: Date,

@@ -95,6 +95,7 @@ export function RegisterPage(): JSX.Element {
               autoComplete="username"
               value={username}
               onChange={(ev) => setUsername(ev.target.value)}
+              maxLength={30}
               required
             />
           </div>

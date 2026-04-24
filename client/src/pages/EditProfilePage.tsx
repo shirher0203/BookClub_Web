@@ -90,6 +90,7 @@ export function EditProfilePage(): JSX.Element {
             value={username}
             onChange={(ev) => setUsername(ev.target.value)}
             autoComplete="username"
+            maxLength={30}
             required
           />
         </div>
