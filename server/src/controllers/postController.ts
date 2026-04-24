@@ -54,6 +54,13 @@ function getReqUser(req: Request): { id: string } | undefined {
   return (req as Request & { user?: { id: string } }).user;
 }
 
+/** Fire-and-forget: remove an uploaded post image from disk; ignores missing files. */
+function unlinkPostImage(imagePath: string | undefined): void {
+  if (!imagePath || !imagePath.startsWith('/uploads/posts/')) return;
+  const abs = path.join(serverRoot, 'public', imagePath);
+  fs.promises.unlink(abs).catch(() => undefined);
+}
+
 function validateScore(score: unknown): boolean {
   if (score === undefined || score === null) return true;
   const n = Number(score);
@@ -164,7 +171,11 @@ export async function updatePost(req: Request, res: Response): Promise<void> {
   if (score !== undefined) post.score = score == null ? undefined : Number(score);
   if (text !== undefined) post.text = String(text).trim();
   const file = req.file as Express.Multer.File | undefined;
-  if (file) post.image = `/uploads/posts/${file.filename}`;
+  if (file) {
+    const previousImage = post.image;
+    post.image = `/uploads/posts/${file.filename}`;
+    unlinkPostImage(previousImage);
+  }
   await post.save();
   const populated = await Post.findById(post._id)
     .populate('userId', 'username profileImage _id')
@@ -190,6 +201,7 @@ export async function deletePost(req: Request, res: Response): Promise<void> {
   }
   await Comment.deleteMany({ postId: id });
   await Post.findByIdAndDelete(id);
+  unlinkPostImage(post.image);
   res.status(204).send();
 }
 

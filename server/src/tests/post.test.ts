@@ -1,5 +1,7 @@
 import request from 'supertest';
 import mongoose from 'mongoose';
+import path from 'path';
+import fs from 'fs';
 import { User } from '../models/userModel';
 import { Post } from '../models/postModel';
 import {
@@ -190,6 +192,68 @@ describe('Posts CRUD', () => {
       .delete(`/posts/${fakeId}`)
       .set('x-test-user-id', user._id.toString());
     expect(res.status).toBe(404);
+  });
+
+  describe('orphan image cleanup', () => {
+    const uploadsDir = path.resolve(__dirname, '../../public/uploads/posts');
+
+    function seedFile(name: string): string {
+      if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+      const abs = path.join(uploadsDir, name);
+      fs.writeFileSync(abs, 'seeded');
+      return abs;
+    }
+
+    async function waitForUnlink(abs: string, tries = 20): Promise<void> {
+      for (let i = 0; i < tries; i++) {
+        if (!fs.existsSync(abs)) return;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+    }
+
+    it('removes the old image file from disk when a new image replaces it on update', async () => {
+      const user = await User.create(USERS.AUTHOR);
+      const fileName = `orphan-update-${Date.now()}.jpg`;
+      const oldAbs = seedFile(fileName);
+      const post = await Post.create({
+        ...POSTS.DEFAULT,
+        userId: user._id,
+        image: `/uploads/posts/${fileName}`,
+      });
+
+      const res = await request(app)
+        .put(`/posts/${post._id}`)
+        .set('x-test-user-id', user._id.toString())
+        .field('bookName', POSTS.DEFAULT.bookName)
+        .attach('image', Buffer.from('fake-png'), 'new.png');
+
+      expect(res.status).toBe(200);
+      await waitForUnlink(oldAbs);
+      expect(fs.existsSync(oldAbs)).toBe(false);
+
+      const newBasename = path.basename(res.body.image as string);
+      const newAbs = path.join(uploadsDir, newBasename);
+      if (fs.existsSync(newAbs)) await fs.promises.unlink(newAbs).catch(() => undefined);
+    });
+
+    it('removes the image file from disk when the post is deleted', async () => {
+      const user = await User.create(USERS.AUTHOR);
+      const fileName = `orphan-delete-${Date.now()}.jpg`;
+      const abs = seedFile(fileName);
+      const post = await Post.create({
+        ...POSTS.DEFAULT,
+        userId: user._id,
+        image: `/uploads/posts/${fileName}`,
+      });
+
+      const res = await request(app)
+        .delete(`/posts/${post._id}`)
+        .set('x-test-user-id', user._id.toString());
+
+      expect(res.status).toBe(204);
+      await waitForUnlink(abs);
+      expect(fs.existsSync(abs)).toBe(false);
+    });
   });
 });
 
