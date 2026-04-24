@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,8 @@ import { assetUrl } from '../utils/assetUrl';
 import { normalizeUserFromApi } from '../utils/authUser';
 import { useImageFallback } from '../utils/useImageFallback';
 import styles from './EditProfilePage.module.css';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export function EditProfilePage(): JSX.Element {
   const { user, setUser } = useAuth();
@@ -33,6 +35,29 @@ export function EditProfilePage(): JSX.Element {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
+
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>): void {
+    const picked = e.target.files?.[0] ?? null;
+    if (!picked) {
+      setFile(null);
+      return;
+    }
+    if (!picked.type.startsWith('image/')) {
+      setError('Profile picture must be an image.');
+      setFile(null);
+      e.target.value = '';
+      return;
+    }
+    if (picked.size > MAX_IMAGE_BYTES) {
+      setError('Profile picture must be 5 MB or smaller.');
+      setFile(null);
+      e.target.value = '';
+      return;
+    }
+    setError(null);
+    setFile(picked);
+    setRemoveImage(false);
+  }
 
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -117,10 +142,7 @@ export function EditProfilePage(): JSX.Element {
             className={styles.fileInput}
             type="file"
             accept="image/*"
-            onChange={(ev) => {
-              setFile(ev.target.files?.[0] ?? null);
-              setRemoveImage(false);
-            }}
+            onChange={handleFileChange}
           />
           {removeImage ? (
             <p className={styles.note}>Picture will be removed when you save.</p>
