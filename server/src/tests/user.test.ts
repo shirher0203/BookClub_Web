@@ -93,6 +93,68 @@ describe('Users (profile)', () => {
       expect(fromDb?.email).toBe('new@test.com');
     });
 
+    it('should return 401 when no access token is provided', async () => {
+      const res = await request(app)
+        .put('/api/users/profile')
+        .send({ username: 'no_token' });
+      expect(res.status).toBe(401);
+      expect(res.body.message).toMatch(/unauthorized/i);
+    });
+
+    it('should return 400 when updating to a username taken by another user', async () => {
+      await User.create({
+        username: 'taken_name',
+        email: 'taken@test.com',
+        password: 'hash',
+        profileImage: '',
+      });
+      const user = await User.create({
+        username: 'my_name',
+        email: 'me@test.com',
+        password: 'hash',
+        profileImage: '',
+      });
+      const token = signAccessToken(user._id.toString(), user.username, user.email, jwtSecret);
+
+      const res = await request(app)
+        .put('/api/users/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ username: 'taken_name' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/username/i);
+
+      const fromDb = await User.findById(user._id).lean();
+      expect(fromDb?.username).toBe('my_name');
+    });
+
+    it('should return 400 when updating to an email taken by another user', async () => {
+      await User.create({
+        username: 'other_user',
+        email: 'taken@test.com',
+        password: 'hash',
+        profileImage: '',
+      });
+      const user = await User.create({
+        username: 'my_name2',
+        email: 'me2@test.com',
+        password: 'hash',
+        profileImage: '',
+      });
+      const token = signAccessToken(user._id.toString(), user.username, user.email, jwtSecret);
+
+      const res = await request(app)
+        .put('/api/users/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: 'taken@test.com' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/email/i);
+
+      const fromDb = await User.findById(user._id).lean();
+      expect(fromDb?.email).toBe('me2@test.com');
+    });
+
     it('should return 200 and set profileImage when file uploaded', async () => {
       const user = await User.create({
         username: 'pic_user',

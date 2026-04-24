@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt, { type JwtPayload, type Secret } from 'jsonwebtoken';
+import { User } from '../models/userModel';
 
 type AccessTokenPayload = JwtPayload & {
   userId?: string;
@@ -16,7 +17,7 @@ function bearerToken(req: Request): string | null {
   return token.trim();
 }
 
-export default function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+export default async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = bearerToken(req);
   if (!token) {
     res.status(401).json({ message: 'Unauthorized' });
@@ -29,20 +30,30 @@ export default function authMiddleware(req: Request, res: Response, next: NextFu
     return;
   }
 
+  let decoded: AccessTokenPayload;
   try {
-    const decoded = jwt.verify(token, secret as Secret) as AccessTokenPayload;
-    const id = decoded.userId ?? decoded.id;
-    if (!id || typeof id !== 'string') {
-      res.status(401).json({ message: 'Unauthorized' });
-      return;
-    }
-    req.user = {
-      id,
-      username: typeof decoded.username === 'string' ? decoded.username : undefined,
-      email: typeof decoded.email === 'string' ? decoded.email : undefined,
-    };
-    next();
+    decoded = jwt.verify(token, secret as Secret) as AccessTokenPayload;
   } catch {
     res.status(401).json({ message: 'Unauthorized' });
+    return;
   }
+
+  const id = decoded.userId ?? decoded.id;
+  if (!id || typeof id !== 'string') {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+
+  const exists = await User.exists({ _id: id });
+  if (!exists) {
+    res.status(401).json({ message: 'Account no longer exists.' });
+    return;
+  }
+
+  req.user = {
+    id,
+    username: typeof decoded.username === 'string' ? decoded.username : undefined,
+    email: typeof decoded.email === 'string' ? decoded.email : undefined,
+  };
+  next();
 }

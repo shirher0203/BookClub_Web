@@ -7,6 +7,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { assetUrl } from '../utils/assetUrl';
 import { normalizeUserFromApi } from '../utils/authUser';
 import { normalizePost } from '../utils/normalizePost';
+import { useImageFallback } from '../utils/useImageFallback';
 import type { Post, User } from '../types';
 import styles from './ProfilePage.module.css';
 
@@ -30,7 +31,7 @@ function ProfilePostsSection({
     [userId]
   );
 
-  const { items, loading, loadMoreRef, hasMore, error } = useInfiniteScroll<Post>(fetchPage, 20);
+  const { items, loading, loadMoreRef, hasMore, error, removeItem } = useInfiniteScroll<Post>(fetchPage, 20);
 
   const showSentinel = useMemo(() => hasMore && items.length > 0, [hasMore, items.length]);
 
@@ -44,7 +45,12 @@ function ProfilePostsSection({
         <p className={styles.postsEmpty}>No posts yet.</p>
       )}
       {items.map((post) => (
-        <PostCard key={post.id} post={post} currentUserId={currentUserId} />
+        <PostCard
+          key={post.id}
+          post={post}
+          currentUserId={currentUserId}
+          onPostDeleted={(id) => removeItem((p) => p.id === id)}
+        />
       ))}
       {loading && items.length === 0 && <p className={styles.postsLoading}>Loading…</p>}
       {loading && items.length > 0 && (
@@ -63,7 +69,7 @@ function ProfilePostsSection({
 
 export function ProfilePage(): JSX.Element {
   const { id: routeId } = useParams<{ id: string }>();
-  const { user: authUser, isAuthenticated } = useAuth();
+  const { user: authUser, isAuthenticated, logout } = useAuth();
   const targetId = routeId ?? authUser?.id ?? '';
 
   const [profile, setProfile] = useState<User | null>(null);
@@ -71,6 +77,8 @@ export function ProfilePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const isOwnProfile = Boolean(authUser?.id && targetId === authUser.id);
+  const imgSrc = assetUrl(profile?.profileImage);
+  const avatarFallback = useImageFallback(imgSrc);
 
   useEffect(() => {
     if (!targetId) {
@@ -90,10 +98,21 @@ export function ProfilePage(): JSX.Element {
         if (!cancelled) {
           setProfile(normalizeUserFromApi(res.data));
         }
-      } catch {
+      } catch (err) {
+        const status = (err as { response?: { status?: number } }).response?.status;
         if (!cancelled) {
           setProfile(null);
           setError('Could not load this profile.');
+        }
+        if (status === 404 && isOwnProfile) {
+          try {
+            await logout();
+          } catch {
+            /* ignore */
+          }
+          if (!cancelled) {
+            window.location.assign('/login?error=oauth_failed');
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -103,7 +122,7 @@ export function ProfilePage(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [targetId]);
+  }, [targetId, isOwnProfile, logout]);
 
   if (!routeId && !isAuthenticated) {
     return (
@@ -135,7 +154,6 @@ export function ProfilePage(): JSX.Element {
     );
   }
 
-  const imgSrc = assetUrl(profile.profileImage);
   const initial = profile.username.slice(0, 1).toUpperCase();
   const currentUserId = authUser?.id ?? null;
 
@@ -147,8 +165,16 @@ export function ProfilePage(): JSX.Element {
 
       <div className={styles.card}>
         <div className={styles.header}>
-          {imgSrc ? (
-            <img src={imgSrc} alt="" className={styles.avatar} width={88} height={88} />
+          {avatarFallback.show ? (
+            <img
+              src={imgSrc}
+              alt={profile.username}
+              className={styles.avatar}
+              width={88}
+              height={88}
+              onError={avatarFallback.onError}
+              referrerPolicy="no-referrer"
+            />
           ) : (
             <span className={styles.avatarPh} aria-hidden>
               {initial}

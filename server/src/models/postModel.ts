@@ -7,7 +7,7 @@ export interface IPost extends Document {
   genre?: string;
   /** 1–5 star rating, optional */
   score?: number;
-  text: string;
+  text?: string;
   image?: string;
   likes: mongoose.Types.ObjectId[];
   likesCount: number;
@@ -26,16 +26,19 @@ const postSchema = new Schema<IPost>(
       type: String,
       required: true,
       trim: true,
+      maxlength: 200,
     },
     bookAuthor: {
       type: String,
       required: false,
       trim: true,
+      maxlength: 200,
     },
     genre: {
       type: String,
       required: false,
       trim: true,
+      maxlength: 60,
     },
     score: {
       type: Number,
@@ -45,7 +48,8 @@ const postSchema = new Schema<IPost>(
     },
     text: {
       type: String,
-      required: true,
+      required: false,
+      maxlength: 5000,
     },
     image: {
       type: String,

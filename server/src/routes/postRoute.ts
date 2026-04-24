@@ -8,7 +8,7 @@ import {
   updatePost,
   deletePost,
   toggleLike,
-  upload,
+  uploadImage,
 } from '../controllers/postController';
 
 const router = Router();
@@ -81,7 +81,7 @@ router.get('/user/:id', getUserPosts);
  *       400: { description: Validation error (e.g. missing bookName or invalid score) }
  *       401: { description: Unauthorized }
  */
-router.post('/', authMiddleware, upload.single('image'), createPost);
+router.post('/', authMiddleware, uploadImage, createPost);
 
 /**
  * @openapi
@@ -132,7 +132,7 @@ router.get('/:id', getPostById);
  *       403: { description: Forbidden (not author) }
  *       404: { description: Post not found }
  */
-router.put('/:id', authMiddleware, upload.single('image'), updatePost);
+router.put('/:id', authMiddleware, uploadImage, updatePost);
 
 /**
  * @openapi

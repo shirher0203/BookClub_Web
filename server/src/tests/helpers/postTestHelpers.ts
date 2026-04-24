@@ -11,7 +11,7 @@ import {
   updatePost,
   deletePost,
   toggleLike,
-  upload,
+  uploadImage,
 } from '../../controllers/postController';
 
 /** User definition (no _id; used with User.create). */
@@ -76,11 +76,11 @@ export async function initPostTestEnv(): Promise<void> {
   app = express();
   app.use(express.json());
   app.use(stubAuth);
-  app.post('/posts', upload.single('image'), createPost);
+  app.post('/posts', uploadImage, createPost);
   app.get('/posts', getFeed);
   app.get('/posts/user/:id', getUserPosts);
   app.get('/posts/:id', getPostById);
-  app.put('/posts/:id', upload.single('image'), updatePost);
+  app.put('/posts/:id', uploadImage, updatePost);
   app.delete('/posts/:id', deletePost);
   app.post('/posts/:id/like', toggleLike);
 }

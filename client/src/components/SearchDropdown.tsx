@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/axios';
+import { useImageFallback } from '../utils/useImageFallback';
 import styles from './SearchDropdown.module.css';
+
+function UserRowAvatar({ src, username }: { src: string; username: string }): JSX.Element {
+  const { show, onError } = useImageFallback(src);
+  if (show) {
+    return <img src={src} alt={username} className={styles.avatarImg} onError={onError} referrerPolicy="no-referrer" />;
+  }
+  return <>{username[0]?.toUpperCase() ?? '?'}</>;
+}
 
 interface SearchUser {
   _id: string;
@@ -131,11 +140,7 @@ export function SearchDropdown(): JSX.Element {
                       }}
                     >
                       <span className={styles.avatar} aria-hidden>
-                        {u.profileImage ? (
-                          <img src={u.profileImage} alt="" className={styles.avatarImg} />
-                        ) : (
-                          u.username[0]?.toUpperCase() ?? '?'
-                        )}
+                        <UserRowAvatar src={u.profileImage} username={u.username} />
                       </span>
                       <span>{u.username}</span>
                     </button>

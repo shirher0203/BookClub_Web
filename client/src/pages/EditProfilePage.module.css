@@ -86,6 +86,30 @@
   object-fit: cover;
 }
 
+.note {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #7a5320;
+  font-style: italic;
+}
+
+.removeBtn {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+  background: transparent;
+  border: 1px solid rgba(166, 124, 46, 0.5);
+  color: #a67c2e;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.removeBtn:hover {
+  background: rgba(212, 168, 83, 0.12);
+}
+
 .error {
   margin: 0;
   padding: 0.5rem 0.65rem;

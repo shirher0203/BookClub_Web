@@ -10,7 +10,7 @@ import {
 import axios from 'axios';
 import { api, setAuthTokenListener } from '../api/axios';
 import type { User } from '../types';
-import { getJwtExpSeconds, normalizeUserFromApi } from '../utils/authUser';
+import { decodeJwtPayload, getJwtExpSeconds, normalizeUserFromApi } from '../utils/authUser';
 
 const LS_ACCESS = 'accessToken';
 const LS_REFRESH = 'refreshToken';
@@ -22,7 +22,7 @@ type AuthContextValue = {
   isReady: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string, profileImage?: File | null) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<boolean>;
   refreshTokenIfNeeded: () => Promise<boolean>;
@@ -88,12 +88,19 @@ async function postRefresh(refreshToken: string): Promise<{
   }
 }
 
-async function fetchUserProfile(userId: string): Promise<User | null> {
+type ProfileFetchResult =
+  | { kind: 'ok'; user: User }
+  | { kind: 'missing' }
+  | { kind: 'error' };
+
+async function fetchUserProfileResult(userId: string): Promise<ProfileFetchResult> {
   try {
     const res = await api.get<Record<string, unknown>>(`/users/${userId}`);
-    return normalizeUserFromApi(res.data);
-  } catch {
-    return null;
+    return { kind: 'ok', user: normalizeUserFromApi(res.data) };
+  } catch (err) {
+    const status = (err as { response?: { status?: number } }).response?.status;
+    if (status === 404 || status === 401) return { kind: 'missing' };
+    return { kind: 'error' };
   }
 }
 
@@ -170,32 +177,36 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
 
       if (cancelled) return;
 
-      setAccessToken(at);
+      if (at) {
+        const payload = decodeJwtPayload<{
+          userId?: string;
+          id?: string;
+          sub?: string;
+        }>(at);
+        const uid = payload?.userId ?? payload?.id ?? payload?.sub;
 
-      if (at && u == null) {
-        try {
-          const parts = at.split('.');
-          if (parts.length >= 2) {
-            const payload = JSON.parse(atob(parts[1])) as {
-              userId?: string;
-              id?: string;
-              sub?: string;
-            };
-            const uid = payload.userId ?? payload.id ?? payload.sub;
-            if (uid) {
-              const fetched = await fetchUserProfile(uid);
-              if (!cancelled && fetched) {
-                u = fetched;
-                localStorage.setItem(LS_USER, JSON.stringify(fetched));
-              }
-            }
+        const result = uid ? await fetchUserProfileResult(uid) : ({ kind: 'missing' } as const);
+        if (cancelled) return;
+
+        if (result.kind === 'ok') {
+          u = result.user;
+          localStorage.setItem(LS_USER, JSON.stringify(result.user));
+        } else if (result.kind === 'missing') {
+          persistSession(null, null, null);
+          at = null;
+          u = null;
+        } else {
+          // Transient server error: keep the stored user (if any) so we don't nuke the session
+          // for a blip. The next request that fails with 401 will still force a login.
+          if (!u) {
+            persistSession(null, null, null);
+            at = null;
           }
-        } catch {
-          /* ignore */
         }
       }
 
       if (!cancelled) {
+        setAccessToken(at);
         setUser(u);
         setIsReady(true);
       }
@@ -223,12 +234,26 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const register = useCallback(
-    async (username: string, email: string, password: string): Promise<void> => {
-      await api.post('/auth/register', {
-        username: username.trim(),
-        email: email.trim(),
-        password,
-      });
+    async (
+      username: string,
+      email: string,
+      password: string,
+      profileImage?: File | null
+    ): Promise<void> => {
+      if (profileImage) {
+        const fd = new FormData();
+        fd.append('username', username.trim());
+        fd.append('email', email.trim());
+        fd.append('password', password);
+        fd.append('profileImage', profileImage);
+        await api.post('/auth/register', fd);
+      } else {
+        await api.post('/auth/register', {
+          username: username.trim(),
+          email: email.trim(),
+          password,
+        });
+      }
       await login(email, password);
     },
     [login]
@@ -260,37 +285,32 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
 
   const commitOAuthSession = useCallback(
     async (at: string, rt: string): Promise<void> => {
-      localStorage.setItem(LS_ACCESS, at);
-      localStorage.setItem(LS_REFRESH, rt);
-      setAccessToken(at);
-
-      const payload = JSON.parse(atob(at.split('.')[1])) as {
+      const payload = decodeJwtPayload<{
         userId?: string;
         id?: string;
         sub?: string;
-        username?: string;
-        email?: string;
-      };
-      const uid = payload.userId ?? payload.id ?? payload.sub;
-      let u: User | null = null;
-      if (uid) {
-        u = await fetchUserProfile(uid);
-      }
-      if (!u && uid) {
-        u = {
-          id: uid,
-          username: typeof payload.username === 'string' ? payload.username : 'reader',
-          email: typeof payload.email === 'string' ? payload.email : '',
-          createdAt: '',
-        };
-      }
-      if (u) {
-        localStorage.setItem(LS_USER, JSON.stringify(u));
-        setUser(u);
-      } else {
-        localStorage.removeItem(LS_USER);
+      }>(at);
+      const uid = payload?.userId ?? payload?.id ?? payload?.sub;
+
+      if (!uid) {
+        persistSession(null, null, null);
         setUser(null);
+        setAccessToken(null);
+        throw new Error('Invalid OAuth token.');
       }
+
+      localStorage.setItem(LS_ACCESS, at);
+      localStorage.setItem(LS_REFRESH, rt);
+      const result = await fetchUserProfileResult(uid);
+      if (result.kind !== 'ok') {
+        persistSession(null, null, null);
+        setUser(null);
+        setAccessToken(null);
+        throw new Error('Could not load user for this OAuth session.');
+      }
+      localStorage.setItem(LS_USER, JSON.stringify(result.user));
+      setUser(result.user);
+      setAccessToken(at);
     },
     []
   );

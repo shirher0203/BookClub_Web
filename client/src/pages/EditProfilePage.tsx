@@ -1,10 +1,13 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { assetUrl } from '../utils/assetUrl';
 import { normalizeUserFromApi } from '../utils/authUser';
+import { useImageFallback } from '../utils/useImageFallback';
 import styles from './EditProfilePage.module.css';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export function EditProfilePage(): JSX.Element {
   const { user, setUser } = useAuth();
@@ -12,6 +15,7 @@ export function EditProfilePage(): JSX.Element {
   const [email, setEmail] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -32,6 +36,29 @@ export function EditProfilePage(): JSX.Element {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>): void {
+    const picked = e.target.files?.[0] ?? null;
+    if (!picked) {
+      setFile(null);
+      return;
+    }
+    if (!picked.type.startsWith('image/')) {
+      setError('Profile picture must be an image.');
+      setFile(null);
+      e.target.value = '';
+      return;
+    }
+    if (picked.size > MAX_IMAGE_BYTES) {
+      setError('Profile picture must be 5 MB or smaller.');
+      setFile(null);
+      e.target.value = '';
+      return;
+    }
+    setError(null);
+    setFile(picked);
+    setRemoveImage(false);
+  }
+
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
     setError(null);
@@ -40,21 +67,34 @@ export function EditProfilePage(): JSX.Element {
       const fd = new FormData();
       fd.append('username', username.trim());
       fd.append('email', email.trim());
-      if (file) fd.append('profileImage', file);
+      if (file) {
+        fd.append('profileImage', file);
+      } else if (removeImage) {
+        fd.append('removeProfileImage', 'true');
+      }
 
       const res = await api.put<Record<string, unknown>>('/users/profile', fd);
       const next = normalizeUserFromApi(res.data);
       setUser(next);
       localStorage.setItem('authUser', JSON.stringify(next));
       setFile(null);
-    } catch {
-      setError('Could not update profile. Check username and email are unique.');
+      setRemoveImage(false);
+    } catch (err) {
+      const serverMessage =
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      setError(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not update profile. Check username and email are unique.'
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
   const currentImg = assetUrl(user?.profileImage);
+  const previewSrc = preview ?? currentImg ?? '';
+  const previewFallback = useImageFallback(previewSrc);
 
   return (
     <div className={styles.page}>
@@ -75,6 +115,7 @@ export function EditProfilePage(): JSX.Element {
             value={username}
             onChange={(ev) => setUsername(ev.target.value)}
             autoComplete="username"
+            maxLength={30}
             required
           />
         </div>
@@ -101,16 +142,40 @@ export function EditProfilePage(): JSX.Element {
             className={styles.fileInput}
             type="file"
             accept="image/*"
-            onChange={(ev) => setFile(ev.target.files?.[0] ?? null)}
+            onChange={handleFileChange}
           />
-          {(preview || currentImg) && (
-            <img
-              src={preview ?? currentImg ?? ''}
-              alt=""
-              className={styles.preview}
-              width={120}
-              height={120}
-            />
+          {removeImage ? (
+            <p className={styles.note}>Picture will be removed when you save.</p>
+          ) : (
+            previewFallback.show && (
+              <img
+                src={previewSrc}
+                alt={file ? 'Profile picture preview' : username || 'Profile picture'}
+                className={styles.preview}
+                width={120}
+                height={120}
+                onError={previewFallback.onError}
+                referrerPolicy="no-referrer"
+              />
+            )
+          )}
+          {currentImg && !file && !removeImage && (
+            <button
+              type="button"
+              className={styles.removeBtn}
+              onClick={() => setRemoveImage(true)}
+            >
+              Remove picture
+            </button>
+          )}
+          {removeImage && (
+            <button
+              type="button"
+              className={styles.removeBtn}
+              onClick={() => setRemoveImage(false)}
+            >
+              Keep current picture
+            </button>
           )}
         </div>
         {error && (

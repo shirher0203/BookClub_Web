@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, RequestHandler } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -27,10 +27,32 @@ const storage = multer.diskStorage({
   },
 });
 
-export const profileImageUpload = multer({
+const ALLOWED_IMAGE_MIMETYPES = /^image\/(jpeg|jpg|png|gif|webp)$/i;
+
+const profileImageUpload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_IMAGE_MIMETYPES.test(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Only image files are allowed (jpeg, png, gif, webp).'));
+  },
 });
+
+/** Wraps multer's single() so upload errors are returned as JSON 400 instead of a generic 500. */
+export const uploadProfileImage: RequestHandler = (req, res, next) => {
+  profileImageUpload.single('profileImage')(req, res, (err: unknown) => {
+    if (err) {
+      const message =
+        err instanceof Error ? err.message : 'Invalid file upload.';
+      res.status(400).json({ message });
+      return;
+    }
+    next();
+  });
+};
 
 function getAuthenticatedUserId(req: AuthRequest): string | undefined {
   return req.user?.id;
@@ -118,8 +140,24 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
   }
 
   const file = req.file as Express.Multer.File | undefined;
+  const rawRemove = (req.body as { removeProfileImage?: unknown }).removeProfileImage;
+  const wantsRemove =
+    rawRemove === true || rawRemove === 'true' || rawRemove === '1';
+
   if (file) {
+    const previous = user.profileImage;
     user.profileImage = `/uploads/profiles/${file.filename}`;
+    if (previous && previous.startsWith('/uploads/profiles/')) {
+      const oldPath = path.join(serverRoot, 'public', previous);
+      fs.promises.unlink(oldPath).catch(() => undefined);
+    }
+  } else if (wantsRemove) {
+    const previous = user.profileImage;
+    user.profileImage = '';
+    if (previous && previous.startsWith('/uploads/profiles/')) {
+      const oldPath = path.join(serverRoot, 'public', previous);
+      fs.promises.unlink(oldPath).catch(() => undefined);
+    }
   }
 
   await user.save();

@@ -2,9 +2,32 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/axios';
 import { assetUrl } from '../utils/assetUrl';
+import { useImageFallback } from '../utils/useImageFallback';
 import { normalizePost } from '../utils/normalizePost';
 import type { Post } from '../types';
 import styles from './PostCard.module.css';
+
+function AuthorAvatar({ src, name }: { src?: string; name: string }): JSX.Element {
+  const { show, onError } = useImageFallback(src);
+  if (show) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={styles.avatar}
+        width={40}
+        height={40}
+        onError={onError}
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
+  return (
+    <div className={styles.avatarPlaceholder} aria-hidden>
+      {name.slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
 
 function StarRow({ score }: { score: number }): JSX.Element {
   return (
@@ -23,6 +46,7 @@ export interface PostCardProps {
   currentUserId?: string | null;
   compact?: boolean;
   onPostUpdated?: (post: Post) => void;
+  onPostDeleted?: (postId: string) => void;
 }
 
 export function PostCard({
@@ -30,6 +54,7 @@ export function PostCard({
   currentUserId,
   compact = false,
   onPostUpdated,
+  onPostDeleted,
 }: PostCardProps): JSX.Element {
   const [merged, setMerged] = useState(post);
   useEffect(() => setMerged(post), [post]);
@@ -44,12 +69,15 @@ export function PostCard({
 
   const [optimisticLiked, setOptimisticLiked] = useState<boolean | null>(null);
   const [optimisticCount, setOptimisticCount] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const displayLiked = optimisticLiked ?? liked;
   const displayCount = optimisticCount ?? merged.likesCount;
 
   const authorName = merged.user?.username ?? 'Member';
   const profileImg = assetUrl(merged.user?.profileImage);
+  const authorId = merged.user?.id ?? (merged.userId || null);
 
   const handleLike = useCallback(async () => {
     if (!currentUserId) return;
@@ -79,42 +107,87 @@ export function PostCard({
     onPostUpdated,
   ]);
 
+  const handleDelete = useCallback(async () => {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete(`/posts/${merged.id}`);
+      onPostDeleted?.(merged.id);
+    } catch (err) {
+      const serverMessage =
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      setDeleteError(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not delete post.'
+      );
+      setDeleting(false);
+    }
+  }, [merged.id, onPostDeleted]);
+
   const imageSrc = assetUrl(merged.image);
 
   return (
     <article className={compact ? styles.cardCompact : styles.card}>
       <header className={styles.header}>
-        <div className={styles.author}>
-          {profileImg ? (
-            <img
-              src={profileImg}
-              alt=""
-              className={styles.avatar}
-              width={40}
-              height={40}
-            />
-          ) : (
-            <div className={styles.avatarPlaceholder} aria-hidden>
-              {authorName.slice(0, 1).toUpperCase()}
+        {authorId ? (
+          <Link
+            to={`/profile/${authorId}`}
+            className={styles.authorLink}
+            aria-label={`View ${authorName}'s profile`}
+          >
+            <div className={styles.author}>
+              <AuthorAvatar src={profileImg} name={authorName} />
+              <div>
+                <p className={styles.authorName}>{authorName}</p>
+                {merged.createdAt && (
+                  <time className={styles.date} dateTime={merged.createdAt}>
+                    {new Date(merged.createdAt).toLocaleDateString(undefined, {
+                      dateStyle: 'medium',
+                    })}
+                  </time>
+                )}
+              </div>
             </div>
-          )}
-          <div>
-            <p className={styles.authorName}>{authorName}</p>
-            {merged.createdAt && (
-              <time className={styles.date} dateTime={merged.createdAt}>
-                {new Date(merged.createdAt).toLocaleDateString(undefined, {
-                  dateStyle: 'medium',
-                })}
-              </time>
-            )}
-          </div>
-        </div>
-        {currentUserId && merged.userId === currentUserId && (
-          <Link to={`/posts/${merged.id}/edit`} className={styles.editLink}>
-            Edit
           </Link>
+        ) : (
+          <div className={styles.author}>
+            <AuthorAvatar src={profileImg} name={authorName} />
+            <div>
+              <p className={styles.authorName}>{authorName}</p>
+              {merged.createdAt && (
+                <time className={styles.date} dateTime={merged.createdAt}>
+                  {new Date(merged.createdAt).toLocaleDateString(undefined, {
+                    dateStyle: 'medium',
+                  })}
+                </time>
+              )}
+            </div>
+          </div>
+        )}
+        {currentUserId && merged.userId === currentUserId && (
+          <div className={styles.ownerActions}>
+            <Link to={`/posts/${merged.id}/edit`} className={styles.editLink}>
+              Edit
+            </Link>
+            <button
+              type="button"
+              className={styles.deleteBtn}
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
         )}
       </header>
+
+      {deleteError && (
+        <p className={styles.deleteError} role="alert">
+          {deleteError}
+        </p>
+      )}
 
       <h2 className={styles.bookTitle}>{merged.bookName}</h2>
       <div className={styles.meta}>
@@ -134,7 +207,7 @@ export function PostCard({
       {imageSrc && (
         <img
           src={imageSrc}
-          alt=""
+          alt={merged.bookName ? `Cover of ${merged.bookName}` : 'Book cover'}
           className={styles.cover}
           loading="lazy"
         />

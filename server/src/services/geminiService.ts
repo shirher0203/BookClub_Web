@@ -6,14 +6,13 @@ import { GEMINI_API_KEY, GEMINI_MODEL } from '../config/env';
  * - titleKeywords → Post.bookName
  * - authorKeywords → Post.bookAuthor
  * - genres → Post.genre
- * - yearRange → Post.createdAt (year filter)
  * - minScore → Post.score
  */
 export interface ParsedQuery {
   titleKeywords?: string[];
   authorKeywords?: string[];
   genres?: string[];
-  yearRange?: { start?: number; end?: number };
+  inferredBooks?: string[];
   minScore?: number;
   originalQuery: string;
 }
@@ -24,17 +23,26 @@ export interface ReviewAnalysis {
   summary: string;
 }
 
-const SCHEMA_DESCRIPTION = `BookClub Post schema fields: bookName (string), bookAuthor (string, optional), genre (string, optional), score (number 1-5, optional), createdAt (Date).`;
+const PARSED_QUERY_SYSTEM = `You are a search query parser for a book review app. Given a user's natural language search, return a JSON object with these optional fields (omit if not mentioned):
 
-const PARSED_QUERY_SYSTEM = `You are a search query parser. Given a user's natural language search about books or reviews, return a JSON object with these optional fields only (use null or omit if not specified):
-- titleKeywords: string[] (words from book titles)
-- authorKeywords: string[] (author names or words)
-- genres: string[] (e.g. fantasy, romance)
-- yearRange: { start?: number, end?: number } (publication or review year)
-- minScore: number (1-5 minimum star rating)
-- originalQuery: string (the exact user query)
+FIELD EXTRACTION (extract from the query, fix typos):
+- titleKeywords: string[] — words from the book title the user typed, with typos corrected. Example: "hary poter" → ["Harry", "Potter"].
+- authorKeywords: string[] — corrected author names. Fix typos and misspellings. Include the surname as a separate entry for flexible matching. Example: "jk rolling" → ["J.K. Rowling", "Rowling"].
+- genres: string[] — genre labels (e.g. fantasy, romance, sci-fi, thriller). Put genre descriptors here, NOT in titleKeywords.
+- minScore: number (1-5) — minimum star rating, only if explicitly requested.
 
-Return ONLY valid JSON, no markdown or extra text.`;
+BOOK INFERENCE (guess what book the user means):
+- inferredBooks: string[] — your best guesses for the full, correct book title(s) the user is looking for. Use this when you can identify the book from context, description, or partial/misspelled names. Example: "that wizard school book by jk rolling" → ["Harry Potter and the Philosopher's Stone", "Harry Potter"]. Include both the full title and a short version if the full title is long.
+
+- originalQuery: string — the exact user query, unchanged.
+
+Important rules:
+- Fix obvious typos and misspellings in all fields (e.g. "tolkeen" → "Tolkien").
+- Always try to populate inferredBooks when you can recognize the book, even partially.
+- Do NOT include a yearRange field — the database has no publication year data.
+- Return ONLY valid JSON, no markdown or extra text.
+
+Database fields that will be searched: bookName (string), bookAuthor (string), genre (string), score (number 1-5).`;
 
 function getModel() {
   if (!GEMINI_API_KEY) {
@@ -47,7 +55,7 @@ function getModel() {
 export async function parseSearchQuery(userQuery: string): Promise<ParsedQuery> {
   try {
     const model = getModel();
-    const prompt = `${PARSED_QUERY_SYSTEM}\n\n${SCHEMA_DESCRIPTION}\n\nUser search: "${userQuery}"\n\nParse into the JSON structure. Return only the JSON object.`;
+    const prompt = `${PARSED_QUERY_SYSTEM}\n\nUser search: "${userQuery}"\n\nParse into the JSON structure. Return only the JSON object.`;
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     const cleaned = text.replace(/```json?\s*/gi, '').replace(/```\s*/g, '').trim();

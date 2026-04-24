@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import styles from './PostForm.module.css';
 
 export interface PostFormValues {
@@ -8,6 +8,7 @@ export interface PostFormValues {
   score: number | '';
   text: string;
   image: File | null;
+  removeImage: boolean;
 }
 
 const emptyValues: PostFormValues = {
@@ -17,16 +18,20 @@ const emptyValues: PostFormValues = {
   score: '',
   text: '',
   image: null,
+  removeImage: false,
 };
 
 export interface PostFormProps {
   initial?: Partial<PostFormValues>;
+  /** Absolute or server-relative URL of the existing cover image in edit mode. */
+  initialImageUrl?: string | null;
   submitLabel?: string;
   onSubmit: (values: PostFormValues) => Promise<void>;
 }
 
 export function PostForm({
   initial,
+  initialImageUrl,
   submitLabel = 'Publish',
   onSubmit,
 }: PostFormProps): JSX.Element {
@@ -39,6 +44,7 @@ export function PostForm({
     score: initial?.score ?? '',
     text: initial?.text ?? '',
     image: null,
+    removeImage: false,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +52,17 @@ export function PostForm({
   function set<K extends keyof PostFormValues>(key: K, v: PostFormValues[K]): void {
     setValues((prev) => ({ ...prev, [key]: v }));
   }
+
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!values.image) {
+      setNewImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(values.image);
+    setNewImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [values.image]);
 
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -58,7 +75,13 @@ export function PostForm({
     try {
       await onSubmit(values);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      const serverMessage =
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      if (typeof serverMessage === 'string' && serverMessage.trim().length > 0) {
+        setError(serverMessage);
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -73,6 +96,7 @@ export function PostForm({
           value={values.bookName}
           onChange={(e) => set('bookName', e.target.value)}
           required
+          maxLength={200}
           autoComplete="off"
         />
       </label>
@@ -83,6 +107,7 @@ export function PostForm({
           className={styles.input}
           value={values.bookAuthor}
           onChange={(e) => set('bookAuthor', e.target.value)}
+          maxLength={200}
           autoComplete="off"
         />
       </label>
@@ -93,6 +118,7 @@ export function PostForm({
           className={styles.input}
           value={values.genre}
           onChange={(e) => set('genre', e.target.value)}
+          maxLength={60}
           autoComplete="off"
         />
       </label>
@@ -122,19 +148,56 @@ export function PostForm({
           className={styles.textarea}
           value={values.text}
           onChange={(e) => set('text', e.target.value)}
+          maxLength={5000}
           rows={6}
         />
       </label>
 
-      <label className={styles.label}>
-        Cover image
+      <div className={styles.label}>
+        <span>Cover image</span>
+        {newImagePreview ? (
+          <img
+            src={newImagePreview}
+            alt="New cover preview"
+            className={styles.coverPreview}
+          />
+        ) : initialImageUrl && !values.removeImage ? (
+          <img
+            src={initialImageUrl}
+            alt="Current cover"
+            className={styles.coverPreview}
+          />
+        ) : values.removeImage ? (
+          <p className={styles.note}>Cover will be removed when you save.</p>
+        ) : null}
         <input
           type="file"
           accept="image/*"
           className={styles.file}
-          onChange={(e) => set('image', e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            set('image', e.target.files?.[0] ?? null);
+            set('removeImage', false);
+          }}
         />
-      </label>
+        {initialImageUrl && !values.image && !values.removeImage && (
+          <button
+            type="button"
+            className={styles.removeBtn}
+            onClick={() => set('removeImage', true)}
+          >
+            Remove cover
+          </button>
+        )}
+        {values.removeImage && (
+          <button
+            type="button"
+            className={styles.removeBtn}
+            onClick={() => set('removeImage', false)}
+          >
+            Keep current cover
+          </button>
+        )}
+      </div>
 
       {error && <p className={styles.error}>{error}</p>}
 

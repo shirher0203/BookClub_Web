@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, RequestHandler } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -6,7 +6,8 @@ import mongoose from 'mongoose';
 import { Post } from '../models/postModel';
 import { Comment } from '../models/commentModel';
 
-const uploadsDir = path.join(__dirname, '../../public/uploads/posts');
+const serverRoot = path.resolve(__dirname, __dirname.includes(`${path.sep}dist${path.sep}`) ? '../../..' : '../..');
+const uploadsDir = path.join(serverRoot, 'public/uploads/posts');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -22,13 +23,42 @@ const storage = multer.diskStorage({
   },
 });
 
-export const upload = multer({
+const ALLOWED_IMAGE_MIMETYPES = /^image\/(jpeg|jpg|png|gif|webp)$/i;
+
+const multerUpload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_IMAGE_MIMETYPES.test(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Only image files are allowed (jpeg, png, gif, webp).'));
+  },
 });
+
+/** Wraps multer's single() so upload errors are returned as JSON 400 instead of a generic 500. */
+export const uploadImage: RequestHandler = (req, res, next) => {
+  multerUpload.single('image')(req, res, (err: unknown) => {
+    if (err) {
+      const message =
+        err instanceof Error ? err.message : 'Invalid file upload.';
+      res.status(400).json({ message });
+      return;
+    }
+    next();
+  });
+};
 
 function getReqUser(req: Request): { id: string } | undefined {
   return (req as Request & { user?: { id: string } }).user;
+}
+
+/** Fire-and-forget: remove an uploaded post image from disk; ignores missing files. */
+function unlinkPostImage(imagePath: string | undefined): void {
+  if (!imagePath || !imagePath.startsWith('/uploads/posts/')) return;
+  const abs = path.join(serverRoot, 'public', imagePath);
+  fs.promises.unlink(abs).catch(() => undefined);
 }
 
 function validateScore(score: unknown): boolean {
@@ -141,7 +171,19 @@ export async function updatePost(req: Request, res: Response): Promise<void> {
   if (score !== undefined) post.score = score == null ? undefined : Number(score);
   if (text !== undefined) post.text = String(text).trim();
   const file = req.file as Express.Multer.File | undefined;
-  if (file) post.image = `/uploads/posts/${file.filename}`;
+  const rawRemove = (req.body as { removeImage?: unknown }).removeImage;
+  const wantsRemove =
+    rawRemove === true || rawRemove === 'true' || rawRemove === '1';
+
+  if (file) {
+    const previousImage = post.image;
+    post.image = `/uploads/posts/${file.filename}`;
+    unlinkPostImage(previousImage);
+  } else if (wantsRemove) {
+    const previousImage = post.image;
+    post.image = undefined;
+    unlinkPostImage(previousImage);
+  }
   await post.save();
   const populated = await Post.findById(post._id)
     .populate('userId', 'username profileImage _id')
@@ -167,6 +209,7 @@ export async function deletePost(req: Request, res: Response): Promise<void> {
   }
   await Comment.deleteMany({ postId: id });
   await Post.findByIdAndDelete(id);
+  unlinkPostImage(post.image);
   res.status(204).send();
 }
 

@@ -25,3 +25,4 @@ PROJECT_PLAN.md
 .cursor
 *.swp
 *.swo
+coverage/

@@ -8,7 +8,11 @@ import {
   resetAiTestDb,
   getTestApp,
 } from './helpers/aiTestHelpers';
-import { clearRateLimitForTesting } from '../controllers/aiController';
+import {
+  clearRateLimitForTesting,
+  sweepExpiredEntries,
+  _testInternals as aiInternals,
+} from '../controllers/aiController';
 import * as geminiService from '../services/geminiService';
 import { searchService } from '../services/searchService';
 
@@ -129,6 +133,31 @@ describe('AI Analyze (controller)', () => {
     expect(res.status).toBe(200);
     expect(res.body.sentiment).toBe('positive');
     expect(mockedGemini.analyzeReview).toHaveBeenCalledWith('Great story.');
+  });
+});
+
+describe('sweepExpiredEntries', () => {
+  beforeEach(() => {
+    aiInternals.clearAll();
+  });
+
+  it('removes only expired rate-limit and analyze entries', () => {
+    const now = 1_000_000;
+    aiInternals.seedRateLimit('fresh-ip', { count: 1, resetAt: now + 5000 });
+    aiInternals.seedRateLimit('stale-ip', { count: 1, resetAt: now - 1 });
+    aiInternals.seedAnalyze('fresh-key', {
+      data: { sentiment: 'positive', themes: [], summary: '' },
+      expiresAt: now + 5000,
+    });
+    aiInternals.seedAnalyze('stale-key', {
+      data: { sentiment: 'positive', themes: [], summary: '' },
+      expiresAt: now - 1,
+    });
+    expect(aiInternals.sizes()).toEqual({ rateLimit: 2, analyze: 2 });
+
+    sweepExpiredEntries(now);
+
+    expect(aiInternals.sizes()).toEqual({ rateLimit: 1, analyze: 1 });
   });
 });
 

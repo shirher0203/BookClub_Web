@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api/axios';
 import { assetUrl } from '../utils/assetUrl';
+import { useImageFallback } from '../utils/useImageFallback';
 import type { Comment } from '../types';
 import styles from './CommentItem.module.css';
 
@@ -19,6 +20,7 @@ export function CommentItem({
   const isOwn = Boolean(currentUserId && comment.userId === currentUserId);
   const name = comment.user?.username ?? 'Member';
   const avatar = assetUrl(comment.user?.profileImage);
+  const avatarFallback = useImageFallback(avatar);
 
   async function handleDelete(): Promise<void> {
     if (!isOwn) return;
@@ -35,8 +37,16 @@ export function CommentItem({
   return (
     <li className={styles.item}>
       <div className={styles.row}>
-        {avatar ? (
-          <img src={avatar} alt="" className={styles.avatar} width={36} height={36} />
+        {avatarFallback.show ? (
+          <img
+            src={avatar}
+            alt={name}
+            className={styles.avatar}
+            width={36}
+            height={36}
+            onError={avatarFallback.onError}
+            referrerPolicy="no-referrer"
+          />
         ) : (
           <div className={styles.avatarPh} aria-hidden>
             {name.slice(0, 1).toUpperCase()}

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/axios';
 import { CommentItem } from '../components/CommentItem';
 import { PostCard } from '../components/PostCard';
@@ -10,12 +10,14 @@ import styles from './CommentsPage.module.css';
 
 export function CommentsPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const currentUserId = getUserIdFromAccessToken();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function load(): Promise<void> {
@@ -50,6 +52,7 @@ export function CommentsPage(): JSX.Element {
     e.preventDefault();
     if (!id || !text.trim()) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const res = await api.post<Record<string, unknown>>('/comments', {
         postId: id,
@@ -59,6 +62,14 @@ export function CommentsPage(): JSX.Element {
       setText('');
       setPost((p) =>
         p ? { ...p, commentsCount: p.commentsCount + 1 } : p
+      );
+    } catch (err) {
+      const serverMessage =
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      setSubmitError(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not post your comment.'
       );
     } finally {
       setSubmitting(false);
@@ -103,7 +114,11 @@ export function CommentsPage(): JSX.Element {
       <p className={styles.back}>
         <Link to="/feed">← Feed</Link>
       </p>
-      <PostCard post={post} currentUserId={currentUserId} />
+      <PostCard
+        post={post}
+        currentUserId={currentUserId}
+        onPostDeleted={() => navigate('/feed', { replace: true })}
+      />
 
       <section className={styles.section} aria-labelledby="comments-heading">
         <h2 id="comments-heading" className={styles.h2}>
@@ -132,13 +147,22 @@ export function CommentsPage(): JSX.Element {
           id="comment-text"
           className={styles.textarea}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (submitError) setSubmitError(null);
+          }}
           rows={3}
+          maxLength={1000}
           placeholder={
             currentUserId ? 'Write something…' : 'Sign in to comment'
           }
           disabled={!currentUserId}
         />
+        {submitError && (
+          <p className={styles.submitError} role="alert">
+            {submitError}
+          </p>
+        )}
         <button
           type="submit"
           className={styles.submit}
