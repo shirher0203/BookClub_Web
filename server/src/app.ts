@@ -1,34 +1,85 @@
-// TODO
-/**
- * Load `.env` before any other app imports that read `process.env`.
- */
-import dotenv from 'dotenv';
-
-dotenv.config();
-/**
- * Copy to `server.local.ts` (gitignored) for local runs: `npm run dev:local`
- * Loads `.env` via `./env` before the app.
- */
-import './env';
+import 'express-async-errors';
+import express, { type NextFunction, type Request, type Response } from 'express';
+import path from 'path';
+import cors from 'cors';
 import mongoose from 'mongoose';
-import app from './app.local';
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
 
-const PORT = Number(process.env.PORT) || 3000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/bookclub';
+import aiRoute from './routes/aiRoute';
+import authRoute from './routes/authRoute';
+import searchRoute from './routes/searchRoute';
+import postRoute from './routes/postRoute';
+import commentRoute from './routes/commentRoute';
+import userRoute from './routes/userRoute';
 
-async function main(): Promise<void> {
-  await mongoose.connect(MONGO_URI);
-  app.listen(PORT, () => {
-    console.log(`Local server: http://localhost:${PORT}`);
-    console.log('  GET  /api/ai/search?q=...');
-    console.log('  GET  /api/search?q=...&type=all');
-    console.log('  GET  /api/posts?skip=0&limit=20');
-    console.log('  GET  /api/comments?postId=...');
-    console.log('  GET  /uploads/... (static)');
+const app = express();
+
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const serverRoot = path.resolve(
+  __dirname,
+  __dirname.includes(`${path.sep}dist${path.sep}`) ? '../..' : '..'
+);
+app.use('/uploads', express.static(path.join(serverRoot, 'public/uploads')));
+
+app.use('/api/auth', authRoute);
+app.use('/api/users', userRoute);
+app.use('/api/posts', postRoute);
+app.use('/api/comments', commentRoute);
+app.use('/api/ai', aiRoute);
+app.use('/api/search', searchRoute);
+
+app.get('/api/health', (_req, res) => {
+  res.json({
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    google: Boolean(process.env.GOOGLE_CLIENT_ID),
+    gemini: Boolean(process.env.GEMINI_API_KEY),
+    uptime: process.uptime(),
   });
-}
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });
+
+const swaggerSpec = swaggerJsdoc({
+  definition: {
+    openapi: '3.0.0',
+    info: { title: 'BookClub API', version: '1.0.0' },
+    servers: [{ url: '/api' }],
+    components: {
+      securitySchemes: {
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      },
+    },
+  },
+  apis: [path.join(__dirname, 'routes/*.ts'), path.join(__dirname, 'routes/*.js')],
+});
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+const clientDist = path.join(serverRoot, '../client/dist');
+app.use(express.static(clientDist));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(clientDist, 'index.html'));
+});
+
+app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  console.error(err);
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  const status =
+    (err as { statusCode?: number }).statusCode ??
+    (err as { status?: number }).status ??
+    500;
+  const message = err instanceof Error ? err.message : 'Internal server error';
+  res.status(status).json({ message });
+});
+
+export default app;
