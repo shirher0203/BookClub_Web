@@ -17,6 +17,14 @@
  * `script` points to the TypeScript build output of `src/server.ts`. With
  * `rootDir: "."` and `outDir: "./dist"` in `tsconfig.json`, the compiled file
  * is `dist/src/server.js`, not `dist/server.js`.
+ *
+ * `exec_mode: 'fork'` is required for this app:
+ *   - We only need a single instance, and fork mode is the simpler model.
+ *   - Cluster mode forks workers through PM2's internal master process, which
+ *     does not inherit Node's `cap_net_bind_service` capability. On node75
+ *     that surfaced as `Error: bind EACCES null:443` even though `node` itself
+ *     had the capability set via `setcap`. Fork mode `exec`s the script
+ *     directly, so the capability applies and binding :443 succeeds.
  */
 module.exports = {
   apps: [
@@ -28,6 +36,7 @@ module.exports = {
         NODE_ENV: 'production',
       },
       instances: 1,
+      exec_mode: 'fork',
     },
   ],
 };
